@@ -10,6 +10,8 @@ from alembic import context
 # Importer les modèles pour l'autogenerate
 from app.db.session import Base
 from app.models import models  # noqa: F401 — enregistrement des tables
+from app.core.config import settings
+from app.core.schema_manager import get_shared_schema, get_default_schema
 
 config = context.config
 
@@ -20,7 +22,6 @@ target_metadata = Base.metadata
 
 
 def get_url() -> str:
-    from app.core.config import settings
     return settings.DATABASE_URL_SYNC
 
 
@@ -32,6 +33,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         compare_type=True,
+        version_table_schema=get_shared_schema(),
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -42,13 +44,18 @@ def do_run_migrations(connection: Connection) -> None:
         connection=connection,
         target_metadata=target_metadata,
         compare_type=True,
+        version_table_schema=get_shared_schema(),
     )
+    
+    # Create shared schema if it doesn't exist
+    connection.execute(f"CREATE SCHEMA IF NOT EXISTS {get_shared_schema()}")
+    connection.execute(f"CREATE SCHEMA IF NOT EXISTS {get_default_schema()}")
+    
     with context.begin_transaction():
         context.run_migrations()
 
 
 async def run_async_migrations() -> None:
-    from app.core.config import settings
     cfg = config.get_section(config.config_ini_section, {})
     cfg["sqlalchemy.url"] = settings.DATABASE_URL
 

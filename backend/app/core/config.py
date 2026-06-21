@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 
+    # Multi-tenancy: Schema per establishment
+    DEFAULT_ETABLISSEMENT: str = "isi_ariana"
+    ETABLISSEMENT_SCHEMA_PREFIX: str = "etablissement"
+
     # SMTP
     MAIL_USERNAME: str = ""
     MAIL_PASSWORD: str = ""
