@@ -50,7 +50,7 @@ async def request_email_change(
     Envoie un OTP au **nouvel** email pour vérifier qu'il est valide.
     L'email actuel reste inchangé jusqu'à confirmation.
     """
-    await AuthService.request_email_change(db, current_user["id"], body.nouvel_email)
+    await AuthService.request_email_change(db, current_user["sub"], body.nouvel_email)
     return {
         "message": f"Code de vérification envoyé à {body.nouvel_email}",
         "require_otp": True,
@@ -73,7 +73,7 @@ async def confirm_email_change(
     L'email est ensuite verrouillé à cette nouvelle valeur.
     """
     etudiant = await AuthService.confirm_email_change(
-        db, current_user["id"], body.nouvel_email, body.code
+        db, current_user["sub"], body.nouvel_email, body.code
     )
     return await EtudiantService.get_by_id(db, etudiant.id)
 

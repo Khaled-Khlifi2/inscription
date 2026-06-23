@@ -61,7 +61,7 @@ function OtpInput({ value, onChange }) {
 
 export default function EtudiantLogin() {
   const [step, setStep]     = useState(1)
-  const [form, setForm]     = useState({ mat_cin: '', nom_fr: '', prenom_fr: '', email: '', code: '' })
+  const [form, setForm]     = useState({ identifier: '', nom_fr: '', prenom_fr: '', email: '', code: '' })
   const [loading, setL]     = useState(false)
   const [showHelp, setHelp] = useState(false)
   const [globalError, setGlobalError] = useState(null)
@@ -75,13 +75,13 @@ export default function EtudiantLogin() {
   const handleStep1 = async e => {
     e.preventDefault()
     setGlobalError(null)
-    if (!form.mat_cin.trim() || !form.nom_fr.trim() || !form.prenom_fr.trim() || !form.email.trim()) {
+    if (!form.identifier.trim() || !form.nom_fr.trim() || !form.prenom_fr.trim() || !form.email.trim()) {
       setGlobalError('Tous les champs sont obligatoires.')
       return
     }
     setL(true)
     try {
-      const res = await loginEtudiant(form.mat_cin.trim(), form.email.trim(), form.nom_fr.trim(), form.prenom_fr.trim())
+      const res = await loginEtudiant(form.identifier.trim(), form.email.trim(), form.nom_fr.trim(), form.prenom_fr.trim())
       if (res.data.require_otp === false) {
         login(res.data.access_token, res.data.role)
         toast.success('Connexion réussie — bienvenue !')
@@ -96,7 +96,7 @@ export default function EtudiantLogin() {
       // Les valeurs saisies restent intactes (state `form` non touché).
       setGlobalError(
         "Une ou plusieurs informations saisies sont incorrectes. " +
-        "Vérifiez votre CIN, votre nom, votre prénom et votre email puis réessayez."
+        "Vérifiez votre CIN ou passeport, votre nom, votre prénom et votre email puis réessayez."
       )
     } finally { setL(false) }
   }
@@ -107,7 +107,7 @@ export default function EtudiantLogin() {
     if (form.code.length !== 6) { setGlobalError('Code OTP incomplet (6 chiffres requis).'); return }
     setL(true)
     try {
-      const res = await loginEtudiantOtp(form.mat_cin.trim(), form.email.trim(), form.code.trim())
+      const res = await loginEtudiantOtp(form.identifier.trim(), form.email.trim(), form.code.trim())
       login(res.data.access_token, res.data.role)
       toast.success('Email vérifié — bienvenue !')
       navigate('/etudiant/inscription')
@@ -119,7 +119,7 @@ export default function EtudiantLogin() {
   const resendOtp = async () => {
     setL(true)
     try {
-      await loginEtudiant(form.mat_cin.trim(), form.email.trim(), form.nom_fr.trim(), form.prenom_fr.trim())
+      await loginEtudiant(form.identifier.trim(), form.email.trim(), form.nom_fr.trim(), form.prenom_fr.trim())
       toast.success('Nouveau code envoyé !')
     } catch { toast.error('Erreur lors du renvoi') }
     finally { setL(false) }
@@ -229,14 +229,14 @@ export default function EtudiantLogin() {
                     </div>
                   )}
 
-                  {/* CIN */}
+                  {/* CIN ou Passeport */}
                   <div>
                     <label className="block text-[0.8125rem] font-semibold text-ink mb-2">
-                      Numéro CIN <span className="text-danger">*</span>
+                      CIN ou Passeport <span className="text-danger">*</span>
                     </label>
                     <div className="relative">
                       <CreditCard size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-mist pointer-events-none" />
-                      <input type="text" value={form.mat_cin} onChange={set('mat_cin')}
+                      <input type="text" value={form.identifier} onChange={set('identifier')}
                         placeholder="Ex : 12345678" required autoFocus
                         className="w-full bg-white border-[1.5px] border-fog rounded-xl pl-11 pr-4 py-3 text-ink text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/10 transition-all font-mono tracking-wider uppercase" />
                     </div>

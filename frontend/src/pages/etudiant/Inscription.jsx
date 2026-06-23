@@ -434,14 +434,8 @@ export default function Inscription() {
 
   // ── Champs obligatoires pour soumettre le dossier ────────────
   // Chaque entrée : [clé du form, libellé affiché, validateur optionnel]
+  // Note : Les champs d'identité (nom, prénom, date_naissance, lieu_naiss, sexe) sont verrouillés
   const REQUIRED_FIELDS = [
-    ['nom_fr',             'Nom (FR)'],
-    ['prenom_fr',          'Prénom (FR)'],
-    ['nom_ar',             'Nom (AR)'],
-    ['prenom_ar',          'Prénom (AR)'],
-    ['date_naissance',     'Date de naissance'],
-    ['lieu_naiss_fr',      'Lieu de naissance'],
-    ['sexe',               'Sexe'],
     ['code_gouvernorat',   'Gouvernorat'],
     ['telephone_portable', 'Téléphone portable'],
     ['adresse_fr',         'Adresse'],
@@ -553,8 +547,8 @@ export default function Inscription() {
 
   const steps = [
     { label: 'Email vérifié',     desc: 'Connexion OTP',                 done: data.email_verified,                                     active: !data.email_verified },
-    { label: 'Identité',          desc: 'Nom, prénom FR / AR',           done: !!(data.nom_fr && data.prenom_fr),                       active: data.email_verified && !(data.nom_fr && data.prenom_fr) },
-    { label: 'Coordonnées',       desc: 'Téléphone + adresse',           done: !!(data.telephone_portable && data.adresse_fr),          active: !!data.nom_fr && !(data.telephone_portable && data.adresse_fr) },
+    { label: 'Identité',          desc: 'Données verrouillées',           done: !!(data.nom_fr && data.prenom_fr),                       active: false },
+    { label: 'Coordonnées',       desc: 'Téléphone + adresse',           done: !!(data.telephone_portable && data.adresse_fr),          active: data.email_verified && !(data.telephone_portable && data.adresse_fr) },
     { label: 'Photo + CIN',       desc: 'Pièces obligatoires',           done: hasPhoto && hasCin,                                      active: !!data.telephone_portable && !(hasPhoto && hasCin) },
     { label: 'Soumission',        desc: 'Envoi à la scolarité',          done: isSubmitted && !isRejete,                                active: hasPhoto && hasCin && (!isSubmitted || isRejete) },
     { label: 'Validation finale', desc: 'Par le responsable',            done: isValidee,                                               active: isSubmitted && !isValidee && !isRejete },
@@ -648,73 +642,22 @@ export default function Inscription() {
         </div>
       </Section>
 
-      {/* ─── 2. Identité (modifiable) ─── */}
+      {/* ─── 2. Identité (verrouillée) ─── */}
       <Section
         icon={<User size={16}/>}
         title="Identité"
-        subtitle="Nom et prénom (FR / AR) — vérifiez l'orthographe exacte de votre CIN"
-        accent="brand"
+        subtitle="Nom, prénom et date de naissance — données verrouillées (non modifiables)"
+        accent="gray"
       >
-        {(() => {
-          const changed = ['nom_fr','prenom_fr','nom_ar','prenom_ar'].filter(
-            k => form[k] && originalNames[k] && form[k].trim().toUpperCase() !== originalNames[k].trim().toUpperCase()
-          )
-          return changed.length > 0 ? (
-            <div className="mb-4 flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
-              <AlertTriangle size={14} className="text-red-500 shrink-0 mt-0.5"/>
-              <div>
-                <p className="text-xs font-bold text-red-700">Données sensibles modifiées</p>
-                <p className="text-xs text-red-600 mt-0.5">
-                  Vous avez modifié : {changed.map(k => ({nom_fr:'Nom (FR)',prenom_fr:'Prénom (FR)',nom_ar:'Nom (AR)',prenom_ar:'Prénom (AR)'}[k])).join(', ')}.
-                  Ces champs seront vérifiés par la scolarité.
-                </p>
-              </div>
-            </div>
-          ) : null
-        })()}
-
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-5 gap-y-4">
-          {[
-            { k:'nom_fr',    label:'Nom (FR)',    placeholder:'BEN ALI',  required:true,  error:errors.nom_fr },
-            { k:'prenom_fr', label:'Prénom (FR)', placeholder:'Mohamed',  required:true,  error:errors.prenom_fr },
-            { k:'nom_ar',    label:'اللقب (AR)',  placeholder:'بن علي',   arabic:true },
-            { k:'prenom_ar', label:'الاسم (AR)',  placeholder:'محمد',     arabic:true },
-          ].map(f => {
-            const isChanged = form[f.k] && originalNames[f.k] &&
-              form[f.k].trim().toUpperCase() !== originalNames[f.k].trim().toUpperCase()
-            return (
-              <div key={f.k} className={clsx(
-                'rounded-xl transition-all',
-                isChanged && canEdit && 'ring-2 ring-red-300 bg-red-50/50 p-2 -m-2'
-              )}>
-                {isChanged && canEdit && (
-                  <p className="text-[0.65rem] font-bold text-red-500 uppercase tracking-wider mb-1 flex items-center gap-1">
-                    <AlertTriangle size={9}/> Modifié
-                  </p>
-                )}
-                <EditField
-                  label={f.label} placeholder={f.placeholder} required={f.required}
-                  value={form[f.k]} onChange={set(f.k)}
-                  error={f.error} disabled={!canEdit} arabic={f.arabic}
-                />
-                {isChanged && originalNames[f.k] && canEdit && (
-                  <p className="text-[0.65rem] text-red-400 mt-1">
-                    Original : <span className="font-mono font-bold">{originalNames[f.k]}</span>
-                  </p>
-                )}
-              </div>
-            )
-          })}
-          <EditField
-            label="Date de naissance" placeholder="Ex : 15/03/2001"
-            value={form.date_naissance} onChange={set('date_naissance')}
-            disabled={!canEdit}
-          />
-          <EditField
-            label="Lieu de naissance (FR)" placeholder="Ex : Tunis"
-            value={form.lieu_naiss_fr} onChange={set('lieu_naiss_fr')}
-            disabled={!canEdit}
-          />
+          <LockedField label="Nom (FR)"           value={form.nom_fr} />
+          <LockedField label="Prénom (FR)"        value={form.prenom_fr} />
+          <LockedField label="اللقب (AR)"          value={form.nom_ar} arabic />
+          <LockedField label="الاسم (AR)"          value={form.prenom_ar} arabic />
+          <LockedField label="Date de naissance"  value={form.date_naissance} />
+          <LockedField label="Lieu de naissance (FR)" value={form.lieu_naiss_fr} />
+          <LockedField label="مكان الولادة (AR)"     value={form.lieu_naiss_ar} arabic />
+          <LockedField label="Sexe"                value={form.sexe === 'M' ? 'Masculin' : form.sexe === 'F' ? 'Féminin' : form.sexe} />
         </div>
       </Section>
 
@@ -722,34 +665,14 @@ export default function Inscription() {
       <Section
         icon={<Info size={16}/>}
         title="État civil & informations personnelles"
-        subtitle="Sexe, lieu de naissance, gouvernorat, BAC, CNSS, passeport — modifiables"
+        subtitle="Situation familiale, gouvernorat, BAC, CNSS, passeport — modifiables"
         accent="blue"
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-5 gap-y-4">
-          <div className="flex flex-col gap-1">
-            <label className="text-[0.7rem] font-semibold text-ink uppercase tracking-wider">Sexe</label>
-            <select
-              value={form.sexe} onChange={set('sexe')} disabled={!canEdit}
-              className={clsx(
-                'w-full border-[1.5px] rounded-xl px-3.5 py-2.5 text-sm outline-none transition-all',
-                !canEdit
-                  ? 'bg-ghost border-fog/30 text-ink-muted cursor-not-allowed'
-                  : 'bg-white border-fog hover:border-brand/40 focus:border-brand focus:ring-2 focus:ring-brand/10 text-ink'
-              )}>
-              <option value="">— Non renseigné —</option>
-              <option value="M">Masculin</option>
-              <option value="F">Féminin</option>
-            </select>
-          </div>
           <EditField
             label="Situation familiale" placeholder="Ex : Célibataire"
             value={form.situation_familiale} onChange={set('situation_familiale')}
             disabled={!canEdit}
-          />
-          <EditField
-            label="Lieu de naissance (AR)" placeholder="مكان الولادة"
-            value={form.lieu_naiss_ar} onChange={set('lieu_naiss_ar')}
-            disabled={!canEdit} arabic
           />
           <EditField
             label="Code gouvernorat" placeholder="Ex : 11 (Tunis)"

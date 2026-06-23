@@ -28,8 +28,8 @@ etudiantHttp.interceptors.response.use(r => r, err => {
 })
 
 /* ── Auth étudiant ── */
-export const loginEtudiant    = (mat_cin, email, nom_fr='', prenom_fr='') => etudiantHttp.post('/auth/etudiant/login', { mat_cin, email, nom_fr, prenom_fr })
-export const loginEtudiantOtp = (mat_cin, email, code)  => etudiantHttp.post('/auth/etudiant/verify-otp', { mat_cin, email, code })
+export const loginEtudiant    = (identifier, email, nom_fr='', prenom_fr='') => etudiantHttp.post('/auth/etudiant/login', { identifier, email, nom_fr, prenom_fr })
+export const loginEtudiantOtp = (identifier, email, code)  => etudiantHttp.post('/auth/etudiant/verify-otp', { identifier, email, code })
 
 /* ── Dossier ── */
 export const getMyProfile    = ()  => etudiantHttp.get('/etudiant/me')

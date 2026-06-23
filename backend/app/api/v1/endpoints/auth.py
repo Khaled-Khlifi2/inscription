@@ -36,14 +36,14 @@ router = APIRouter(prefix="/auth", tags=["Authentification"])
 
 @router.post(
     "/etudiant/login",
-    summary="Connexion étudiant — CIN + email",
+    summary="Connexion étudiant — CIN ou passeport + email",
 )
 async def login_etudiant(
     credentials: EtudiantLoginRequest,
     db: AsyncSession = Depends(get_db),
 ):
     """
-    **CAS A** — Email déjà vérifié et correspond au CIN :
+    **CAS A** — Email déjà vérifié et correspond au CIN/passeport :
     → Connexion directe, pas d'OTP.
     → Retourne `{ require_otp: false, access_token, role, expires_in, is_first_login: false }`.
 
@@ -55,7 +55,7 @@ async def login_etudiant(
     → Retourne `{ require_otp: true, message }`.
     """
     result = await AuthService.login_etudiant_request(
-        db, credentials.mat_cin, credentials.email,
+        db, credentials.identifier, credentials.email,
         credentials.nom_fr.strip(), credentials.prenom_fr.strip()
     )
 
@@ -94,7 +94,7 @@ async def verify_otp(
     - Le frontend redirige vers `/etudiant/inscription`
     """
     result = await AuthService.login_etudiant_verify_otp(
-        db, body.mat_cin, body.email, body.code
+        db, body.identifier, body.email, body.code
     )
     return OtpVerifyResponse(
         access_token=result["token"].access_token,

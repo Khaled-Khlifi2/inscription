@@ -37,14 +37,14 @@ class OtpVerifyResponse(BaseModel):
 
 
 class EtudiantLoginRequest(BaseModel):
-    mat_cin: str
+    identifier: str  # CIN ou passeport
     email: str
     nom_fr: str = ""
     prenom_fr: str = ""
 
 
 class EtudiantOtpVerifyRequest(BaseModel):
-    mat_cin: str
+    identifier: str  # CIN ou passeport
     email: str
     code: str
 
@@ -218,7 +218,7 @@ class EtudiantCreate(EtudiantBase):
 
 class EtudiantUpdate(BaseModel):
     """
-    Champs modifiables uniquement.
+    Champs modifiables uniquement par administrateurs/responsables.
     Immutables (jamais modifiables via PATCH) :
       mat_cin, cfil, lib_filiere, lib_filiere_ar, num_inscription, email
     """
@@ -246,18 +246,12 @@ class EtudiantUpdate(BaseModel):
 class EtudiantSelfComplete(BaseModel):
     """
     Champs que l'étudiant peut modifier lui-même via l'écran d'inscription.
-    Sont EXCLUS volontairement (sensibles / administratifs / SALIMA) :
+    Sont EXCLUS volontairement (sensibles / administratifs / SALIMA / identité) :
       - mat_cin, num_inscription
       - cfil, lib_filiere, lib_filiere_ar, niveau_id
+      - nom_fr, prenom_fr, nom_ar, prenom_ar (identité)
+      - date_naissance, lieu_naiss_fr, lieu_naiss_ar, sexe (identité)
     """
-    nom_fr: Optional[str] = None
-    prenom_fr: Optional[str] = None
-    nom_ar: Optional[str] = None
-    prenom_ar: Optional[str] = None
-    date_naissance: Optional[str] = None
-    lieu_naiss_fr: Optional[str] = None
-    lieu_naiss_ar: Optional[str] = None
-    sexe: Optional[str] = None
     situation_familiale: Optional[str] = None
     code_gouvernorat: Optional[str] = None
     code_type_bac: Optional[str] = None

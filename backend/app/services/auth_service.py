@@ -84,11 +84,11 @@ async def get_user_permissions(db: AsyncSession, user_type: str, user_id: int) -
 
 class AuthService:
 
-    # ── LOGIN étape 1 : CIN + email ────────────────────────────────────────────
+    # ── LOGIN étape 1 : CIN ou passeport + email ────────────────────────────────
     @staticmethod
     async def login_etudiant_request(
         db: AsyncSession,
-        mat_cin: str,
+        identifier: str,
         email: str,
         nom_fr: str = "",
         prenom_fr: str = "",
@@ -98,25 +98,40 @@ class AuthService:
         CAS B : email déjà vérifié et DIFFÉRENT    → refus
         CAS C : pas encore d'email vérifié          → envoi OTP
 
+        L'identifiant peut être le CIN (mat_cin) ou le numéro de passeport.
+        Priorité : CIN d'abord, puis passeport si CIN non trouvé.
+
         Vérification nom/prénom : si fournis, ils doivent correspondre à l'étudiant en base.
         """
-        mat_cin = mat_cin.upper().strip()
+        identifier = identifier.upper().strip()
         email   = email.lower().strip()
 
+        # Essayer d'abord par CIN, puis par passeport
         result = await db.execute(
             select(Etudiant).where(
-                Etudiant.mat_cin  == mat_cin,
+                Etudiant.mat_cin  == identifier,
                 Etudiant.is_active == True,
             )
         )
+        etudiant = result.scalar_one_or_none()
+
+        # Si pas trouvé par CIN, essayer par passeport
+        if not etudiant:
+            result = await db.execute(
+                select(Etudiant).where(
+                    Etudiant.passeport  == identifier,
+                    Etudiant.is_active == True,
+                )
+            )
+            etudiant = result.scalar_one_or_none()
+
         # Message générique commun : ne révèle pas quel champ est incorrect
         # (confidentialité + conformité avec la demande utilisateur).
         GENERIC_CREDENTIALS_ERROR = (
             "Les informations saisies sont incorrectes. "
-            "Vérifiez votre CIN, votre nom, votre prénom et votre email puis réessayez."
+            "Vérifiez votre CIN ou passeport, votre nom, votre prénom et votre email puis réessayez."
         )
 
-        etudiant = result.scalar_one_or_none()
         if not etudiant:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -174,35 +189,49 @@ class AuthService:
 
         # CAS C — première connexion → envoi OTP
         nom_prenom = f"{etudiant.prenom_fr} {etudiant.nom_fr}"
-        await EmailService.send_otp(db, mat_cin, email, nom_prenom)
+        await EmailService.send_otp(db, etudiant.mat_cin, email, nom_prenom)
         return {"require_otp": True, "token": None, "is_first_login": True}
 
     # ── LOGIN étape 2 : vérification OTP ──────────────────────────────────────
     @staticmethod
     async def login_etudiant_verify_otp(
         db: AsyncSession,
-        mat_cin: str,
+        identifier: str,
         email: str,
         code: str,
     ) -> dict:
         """
         Vérifie l'OTP.
         Si correct → enregistre l'email en base (verrouillé) → retourne JWT.
+
+        L'identifiant peut être le CIN (mat_cin) ou le numéro de passeport.
         """
-        mat_cin = mat_cin.upper().strip()
+        identifier = identifier.upper().strip()
         email   = email.lower().strip()
 
+        # Essayer d'abord par CIN, puis par passeport
         result = await db.execute(
             select(Etudiant).where(
-                Etudiant.mat_cin   == mat_cin,
+                Etudiant.mat_cin   == identifier,
                 Etudiant.is_active == True,
             )
         )
         etudiant = result.scalar_one_or_none()
+
+        # Si pas trouvé par CIN, essayer par passeport
+        if not etudiant:
+            result = await db.execute(
+                select(Etudiant).where(
+                    Etudiant.passeport  == identifier,
+                    Etudiant.is_active == True,
+                )
+            )
+            etudiant = result.scalar_one_or_none()
+
         if not etudiant:
             raise HTTPException(status_code=404, detail="Étudiant introuvable")
 
-        valid = await EmailService.verify_otp(db, mat_cin, email, code.strip())
+        valid = await EmailService.verify_otp(db, etudiant.mat_cin, email, code.strip())
         if not valid:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -230,23 +259,37 @@ class AuthService:
     @staticmethod
     async def request_email_change(
         db: AsyncSession,
-        mat_cin: str,
+        identifier: str,
         nouvel_email: str,
     ) -> None:
         """
         Envoie un OTP au NOUVEAU email pour vérifier qu'il est valide.
         Appelé depuis le formulaire d'inscription quand l'étudiant veut changer son email.
+
+        L'identifiant peut être le CIN (mat_cin) ou le numéro de passeport.
         """
-        mat_cin      = mat_cin.upper().strip()
+        identifier      = identifier.upper().strip()
         nouvel_email = nouvel_email.lower().strip()
 
+        # Essayer d'abord par CIN, puis par passeport
         result = await db.execute(
             select(Etudiant).where(
-                Etudiant.mat_cin   == mat_cin,
+                Etudiant.mat_cin   == identifier,
                 Etudiant.is_active == True,
             )
         )
         etudiant = result.scalar_one_or_none()
+
+        # Si pas trouvé par CIN, essayer par passeport
+        if not etudiant:
+            result = await db.execute(
+                select(Etudiant).where(
+                    Etudiant.passeport  == identifier,
+                    Etudiant.is_active == True,
+                )
+            )
+            etudiant = result.scalar_one_or_none()
+
         if not etudiant:
             raise HTTPException(status_code=404, detail="Étudiant introuvable")
 
@@ -267,34 +310,48 @@ class AuthService:
             )
 
         nom_prenom = f"{etudiant.prenom_fr} {etudiant.nom_fr}"
-        await EmailService.send_otp(db, mat_cin, nouvel_email, nom_prenom)
+        await EmailService.send_otp(db, etudiant.mat_cin, nouvel_email, nom_prenom)
 
     # ── CONFIRMER le changement d'email ────────────────────────────────────────
     @staticmethod
     async def confirm_email_change(
         db: AsyncSession,
-        mat_cin: str,
+        identifier: str,
         nouvel_email: str,
         code: str,
     ) -> Etudiant:
         """
         Vérifie l'OTP pour le nouveau email.
         Si correct → met à jour l'email en base → retourne l'étudiant.
+
+        L'identifiant peut être le CIN (mat_cin) ou le numéro de passeport.
         """
-        mat_cin      = mat_cin.upper().strip()
+        identifier      = identifier.upper().strip()
         nouvel_email = nouvel_email.lower().strip()
 
+        # Essayer d'abord par CIN, puis par passeport
         result = await db.execute(
             select(Etudiant).where(
-                Etudiant.mat_cin   == mat_cin,
+                Etudiant.mat_cin   == identifier,
                 Etudiant.is_active == True,
             )
         )
         etudiant = result.scalar_one_or_none()
+
+        # Si pas trouvé par CIN, essayer par passeport
+        if not etudiant:
+            result = await db.execute(
+                select(Etudiant).where(
+                    Etudiant.passeport  == identifier,
+                    Etudiant.is_active == True,
+                )
+            )
+            etudiant = result.scalar_one_or_none()
+
         if not etudiant:
             raise HTTPException(status_code=404, detail="Étudiant introuvable")
 
-        valid = await EmailService.verify_otp(db, mat_cin, nouvel_email, code.strip())
+        valid = await EmailService.verify_otp(db, etudiant.mat_cin, nouvel_email, code.strip())
         if not valid:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
