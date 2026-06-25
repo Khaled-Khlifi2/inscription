@@ -2,122 +2,69 @@
 
 Full-stack student management application with Python FastAPI backend and React frontend.
 
-## Multi-Tenancy Architecture (Scalable - Optional)
+## Quick Start
 
-This project includes a **scalable schema-per-establishment architecture** for multi-tenancy. The infrastructure is ready to support multiple educational establishments (e.g., ISI Ariana, Faculty of Sciences) sharing the same database with complete data isolation.
-
-**Current State**: All tables remain in the `public` schema - no changes to your existing database.
-
-**When Ready**: When you want to add a new establishment, you can enable the multi-tenancy features.
-
-### Schema Structure (When Enabled)
-
-- **`shared` schema**: Contains common data shared across all establishments (niveaux, roles, permissions)
-- **`etablissement_*` schemas**: Each establishment has its own schema (e.g., `etablissement_isi_ariana`, `etablissement_faculty_sciences`)
-- **`public` schema**: Default PostgreSQL schema (current location of all tables)
-
-### How It Works (When Enabled)
-
-1. **Request Context**: Each API request includes the establishment identifier via:
-   - HTTP Header: `X-Etablissement: isi_ariana`
-   - JWT Token: `etablissement` claim in the payload
-
-2. **Schema Switching**: The database session automatically sets the PostgreSQL `search_path` to the correct schema based on the establishment context.
-
-3. **Data Isolation**: All establishment-specific tables (students, inscriptions, etc.) are completely isolated per schema.
-
-### Enabling Multi-Tenancy (When You're Ready)
-
-When you want to add a new establishment (e.g., Faculty of Sciences):
-
-**Option 1: Quick Setup (Recommended for new establishments)**
-
-1. **Use the provided script** to create a new establishment with cloned table structure:
-   ```bash
-   cd backend
-   python scripts/create_establishment.py faculty_sciences
-   ```
-   This automatically:
-   - Creates the schema `etablissement_faculty_sciences`
-   - Clones all table structures from `public` schema
-   - Sets up indexes, constraints, and defaults
-
-2. **Use the new establishment** in API requests:
-   ```bash
-   curl -H "X-Etablissement: faculty_sciences" http://localhost:8000/api/v1/etudiant/me
-   ```
-
-**Option 2: Manual Setup**
-
-1. **Edit the migration** `backend/alembic/versions/0012_multi_schema_setup.py`:
-   - Uncomment the code in the `upgrade()` function
-   - This will create schemas and move existing data
-
-2. **Run the migration**:
-   ```bash
-   cd backend
-   alembic upgrade head
-   ```
-
-3. **Create additional establishment schemas** as needed:
-   ```sql
-   CREATE SCHEMA etablissement_faculty_sciences;
-   ```
-
-4. **Clone table structure** (or use the script above):
-   ```python
-   from app.core.schema_manager import clone_schema_structure
-   await clone_schema_structure(session, "public", "etablissement_faculty_sciences")
-   ```
-
-**Note**: Until you enable the migration, the system continues to work exactly as it does now with all tables in the `public` schema.
-
-## Prerequisites
+### Prerequisites
 
 - Python 3.9+
 - Node.js 18+
 - PostgreSQL database
 
-## Installation
-
-### Backend
+### Backend Setup
 
 1. Navigate to the backend directory:
 ```bash
 cd backend
 ```
 
-2. Create a virtual environment:
+2. Create and activate a virtual environment:
 ```bash
+# Windows
 python -m venv venv
+venv\Scripts\activate
+
+# Linux/Mac
+python -m venv venv
+source venv/bin/activate
 ```
 
-3. Activate the virtual environment:
-- Windows: `venv\Scripts\activate`
-- Linux/Mac: `source venv/bin/activate`
-
-4. Install dependencies:
+3. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-5. Configure environment variables:
+4. Configure environment variables:
 ```bash
+# Copy the example environment file
 cp .env.example .env
+
 # Edit .env with your database credentials and settings
+# Required variables:
+# - DATABASE_URL: PostgreSQL connection string
+# - SECRET_KEY: JWT secret key
+# - ALGORITHM: JWT algorithm (default: HS256)
+# - ACCESS_TOKEN_EXPIRE_MINUTES: Token expiration time
 ```
 
-6. Run database migrations:
+5. Initialize the database:
 ```bash
+# Run database migrations
 alembic upgrade head
+
+# Optional: Create an admin user
+python scripts/create_admin.py
 ```
 
-7. Start the backend server:
+6. Start the backend server:
 ```bash
+# Development mode (with auto-reload)
 uvicorn main:app --reload
+
+# Production mode
+uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-### Frontend
+### Frontend Setup
 
 1. Navigate to the frontend directory:
 ```bash
@@ -129,10 +76,37 @@ cd frontend
 npm install
 ```
 
-3. Start the development server:
+3. Configure environment variables (if needed):
+```bash
+# Create .env file if it doesn't exist
+# VITE_API_URL=http://localhost:8000
+```
+
+4. Start the development server:
 ```bash
 npm run dev
 ```
+
+5. Build for production:
+```bash
+npm run build
+npm run preview
+```
+
+### Running the Application
+
+**Development Mode:**
+- Open two terminal windows
+- Terminal 1: Start backend (`cd backend && uvicorn main:app --reload`)
+- Terminal 2: Start frontend (`cd frontend && npm run dev`)
+- Access the app at `http://localhost:5173`
+- API docs at `http://localhost:8000/docs`
+
+**Production Mode:**
+- Build the frontend: `cd frontend && npm run build`
+- Serve the frontend with a web server (nginx, apache, etc.)
+- Start the backend: `cd backend && uvicorn main:app --host 0.0.0.0 --port 8000`
+- Configure your web server to proxy API requests to the backend
 
 ## Project Structure
 
