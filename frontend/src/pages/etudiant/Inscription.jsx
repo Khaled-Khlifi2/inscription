@@ -1,12 +1,3 @@
-/**
- * Formulaire d'inscription étudiant — v5
- *
- * Refonte interface :
- *  - Mise en page pleine largeur (sections empilées verticalement, pas de sidebar)
- *  - Pièces jointes typées : photo de profil + carte d'identité (images, slots uniques) + autres documents (PDF)
- *  - OCR de la CIN côté backend pour vérifier que la photo correspond bien aux données saisies
- *  - Stepper de progression en haut
- */
 import { useEffect, useState, useRef } from 'react'
 import {
   getMyProfile, updateMyProfile, submitInscription,
@@ -363,7 +354,7 @@ export default function Inscription() {
     nom_fr: '', prenom_fr: '', nom_ar: '', prenom_ar: '',
     date_naissance: '', lieu_naiss_fr: '', lieu_naiss_ar: '',
     sexe: '', situation_familiale: '',
-    code_gouvernorat: '', code_type_bac: '', num_cnss: '', passeport: '',
+    code_gouvernorat: '', code_type_bac: '', num_cnss: '',
     telephone_portable: '', telephone_fixe: '', adresse_fr: '', adresse_ar: '',
   })
   const [saving, setSave]     = useState(false)
@@ -420,7 +411,6 @@ export default function Inscription() {
       code_gouvernorat:    pick('code_gouvernorat'),
       code_type_bac:       pick('code_type_bac'),
       num_cnss:            pick('num_cnss'),
-      passeport:           pick('passeport'),
       telephone_portable:  pick('telephone_portable'),
       telephone_fixe:      pick('telephone_fixe'),
       adresse_fr:          pick('adresse_fr'),
@@ -634,6 +624,7 @@ export default function Inscription() {
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-5 gap-y-4">
           <LockedField label="Matricule CIN"     value={data.mat_cin} />
+          <LockedField label="Passeport"         value={data.passeport} />
           <LockedField label="N° Inscription"    value={data.num_inscription} />
           <LockedField label="Code filière"      value={data.cfil} />
           <LockedField label="Niveau d'études"   value={data.niveau?.libelle} />
@@ -665,7 +656,7 @@ export default function Inscription() {
       <Section
         icon={<Info size={16}/>}
         title="État civil & informations personnelles"
-        subtitle="Situation familiale, gouvernorat, BAC, CNSS, passeport — modifiables"
+        subtitle="Situation familiale, gouvernorat, BAC, CNSS — modifiables"
         accent="blue"
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-5 gap-y-4">
@@ -687,11 +678,6 @@ export default function Inscription() {
           <EditField
             label="N° CNSS" placeholder="Ex : 12345678"
             value={form.num_cnss} onChange={set('num_cnss')}
-            disabled={!canEdit}
-          />
-          <EditField
-            label="Passeport" placeholder="Numéro de passeport"
-            value={form.passeport} onChange={set('passeport')}
             disabled={!canEdit}
           />
         </div>
@@ -804,28 +790,48 @@ export default function Inscription() {
         {autresPieces.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
             {autresPieces.map(pj => (
-              <div key={pj.id} className="flex items-center gap-3 p-3 bg-white border border-ghost rounded-xl group hover:border-brand/30 transition-colors">
-                <div className="w-10 h-10 bg-red-50 border border-red-100 rounded-xl flex items-center justify-center shrink-0">
-                  <FileText size={18} className="text-red-500" />
+              <div key={pj.id} className={clsx(
+                'rounded-2xl border-2 overflow-hidden transition-all',
+                'border-amber-200 bg-amber-50/30'
+              )}>
+                <header className="flex items-center gap-3 px-4 py-3 border-b border-amber-200">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-amber-700 bg-amber-100">
+                    <FileText size={16} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-ink uppercase tracking-wide leading-tight truncate">{pj.nom_fichier}</p>
+                    <p className="text-xs text-mist mt-0.5">
+                      {(pj.taille_octets / 1024).toFixed(0)} KB
+                      {pj.uploaded_at && ` · ${new Date(pj.uploaded_at).toLocaleDateString('fr-FR')}`}
+                    </p>
+                  </div>
+                  <Badge color="blue">Téléversé</Badge>
+                </header>
+                <div className="p-4">
+                  <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-fog/40">
+                    <div className="w-12 h-12 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
+                      <FileText size={20} className="text-amber-600"/>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-ink truncate">Document PDF</p>
+                      <p className="text-xs text-mist mt-0.5">Cliquez pour visualiser</p>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <button type="button" onClick={() => handleViewPiece(pj.id)}
+                        className="p-2 rounded-lg bg-amber-50 hover:bg-amber-600 text-amber-600 hover:text-white transition-all"
+                        title="Voir le document">
+                        <Eye size={14}/>
+                      </button>
+                      {canEdit && (
+                        <button type="button" onClick={() => handleDeletePJ(pj.id, pj.nom_fichier)}
+                          className="p-2 rounded-lg bg-red-50 hover:bg-red-600 text-red-600 hover:text-white transition-all"
+                          title="Supprimer">
+                          <Trash2 size={14}/>
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-ink truncate">{pj.nom_fichier}</p>
-                  <p className="text-xs text-mist">
-                    {(pj.taille_octets / 1024).toFixed(0)} KB
-                    {pj.uploaded_at && ` · ${new Date(pj.uploaded_at).toLocaleDateString('fr-FR')}`}
-                  </p>
-                </div>
-                <button onClick={() => handleViewPiece(pj.id)}
-                  className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition-all" title="Voir">
-                  <Eye size={14} />
-                </button>
-                {canEdit && (
-                  <button
-                    onClick={() => handleDeletePJ(pj.id, pj.nom_fichier)}
-                    className="p-2 rounded-lg text-fog hover:text-danger hover:bg-danger-soft transition-all" title="Supprimer">
-                    <Trash2 size={14} />
-                  </button>
-                )}
               </div>
             ))}
           </div>

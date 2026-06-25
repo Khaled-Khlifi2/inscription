@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import List, Optional
+import re
 from pydantic import BaseModel, field_validator
 
 
@@ -211,17 +212,24 @@ class EtudiantBase(BaseModel):
             raise ValueError("MAT_CIN ne peut pas etre vide")
         return v.upper()
 
+    @field_validator("nom_ar", "prenom_ar", "lieu_naiss_ar", "lib_filiere_ar")
+    @classmethod
+    def validate_arabic(cls, v: Optional[str]) -> Optional[str]:
+        if v is None or v.strip() == "":
+            return v
+        # Vérifie que le champ contient principalement des caractères arabes
+        # Permet aussi les espaces, chiffres, et ponctuation arabe
+        arabic_pattern = re.compile(r'^[\u0600-\u06FF\s0-9.,\-]+$')
+        if not arabic_pattern.match(v):
+            raise ValueError("Ce champ ne doit contenir que des caractères arabes")
+        return v
+
 
 class EtudiantCreate(EtudiantBase):
     pass
 
 
 class EtudiantUpdate(BaseModel):
-    """
-    Champs modifiables uniquement par administrateurs/responsables.
-    Immutables (jamais modifiables via PATCH) :
-      mat_cin, cfil, lib_filiere, lib_filiere_ar, num_inscription, email
-    """
     nom_fr: Optional[str] = None
     prenom_fr: Optional[str] = None
     nom_ar: Optional[str] = None
@@ -242,21 +250,22 @@ class EtudiantUpdate(BaseModel):
     adresse_ar: Optional[str] = None
     niveau_id: Optional[int] = None
 
+    @field_validator("nom_ar", "prenom_ar", "lieu_naiss_ar", "adresse_ar")
+    @classmethod
+    def validate_arabic(cls, v: Optional[str]) -> Optional[str]:
+        if v is None or v.strip() == "":
+            return v
+        arabic_pattern = re.compile(r'^[\u0600-\u06FF\s0-9.,\-]+$')
+        if not arabic_pattern.match(v):
+            raise ValueError("Ce champ ne doit contenir que des caractères arabes")
+        return v
+
 
 class EtudiantSelfComplete(BaseModel):
-    """
-    Champs que l'étudiant peut modifier lui-même via l'écran d'inscription.
-    Sont EXCLUS volontairement (sensibles / administratifs / SALIMA / identité) :
-      - mat_cin, num_inscription
-      - cfil, lib_filiere, lib_filiere_ar, niveau_id
-      - nom_fr, prenom_fr, nom_ar, prenom_ar (identité)
-      - date_naissance, lieu_naiss_fr, lieu_naiss_ar, sexe (identité)
-    """
     situation_familiale: Optional[str] = None
     code_gouvernorat: Optional[str] = None
     code_type_bac: Optional[str] = None
     num_cnss: Optional[str] = None
-    passeport: Optional[str] = None
     telephone_portable: Optional[str] = None
     telephone_fixe: Optional[str] = None
     adresse_fr: Optional[str] = None
@@ -264,10 +273,6 @@ class EtudiantSelfComplete(BaseModel):
 
 
 class EtudiantSubmitInscription(EtudiantSelfComplete):
-    """
-    Tous les champs modifiables par l'étudiant lors de la soumission.
-    Les données sont mises à jour sur l'objet Etudiant ET l'inscription est créée/mise à jour.
-    """
     telephone_portable: str
     nom_fr: Optional[str] = None
     prenom_fr: Optional[str] = None

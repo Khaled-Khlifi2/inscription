@@ -1,22 +1,3 @@
-"""
-Service de vérification OCR des cartes d'identité (CIN).
-
-Moteur par défaut : **EasyOCR** (deep-learning, nettement plus précis sur
-l'arabe que Tesseract pour les CIN tunisiennes). Tesseract reste utilisable
-en définissant la variable d'environnement OCR_ENGINE=tesseract.
-
-Le service extrait le texte d'une image de CIN et vérifie qu'il contient :
-  - Le numéro CIN tel que saisi
-  - Le nom et le prénom en arabe (اللقب / الاسم)
-
-Si le moteur OCR n'est pas disponible, l'upload est accepté avec un message
-diagnostic « OCR indisponible » pour vérification manuelle.
-
-Politique d'acceptation :
-  - 2/3 critères OK ou plus → accepté (verified=True)
-  - 1/3 critère OK          → accepté avec avertissement (verified=False)
-  - 0/3                     → refusé (HTTP 422 côté appelant)
-"""
 from __future__ import annotations
 
 import io
@@ -31,12 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 def _resolve_tesseract_cmd() -> str | None:
-    """
-    Résout le chemin du binaire `tesseract` :
-      1. Variable d'environnement TESSERACT_CMD (si définie)
-      2. PATH système via shutil.which
-      3. Chemins d'installation par défaut sous Windows
-    """
+    
     env_cmd = os.environ.get("TESSERACT_CMD")
     if env_cmd and os.path.isfile(env_cmd):
         return env_cmd
@@ -122,11 +98,6 @@ def _fuzzy_best_ratio(needle: str, haystack: str) -> float:
 
 
 def _match_arabic(expected: str, ocr_text_ar: str) -> bool:
-    """Match arabe tolérant aux erreurs OCR :
-      1. Match exact (chaîne complète présente)
-      2. Match par tokens (au moins 1 mot >= 2 lettres présent tel quel)
-      3. Match fuzzy (similarité >= 60% sur fenêtre glissante)
-    """
     exp = _normalize_ar(expected)
     txt = _normalize_ar(ocr_text_ar)
     if not exp or not txt:
@@ -170,9 +141,7 @@ _easyocr_reader_fr = None
 
 
 def _get_easyocr_readers():
-    """Initialise paresseusement les Reader EasyOCR (arabe + latin).
-    Note : le premier appel télécharge les modèles (~150 Mo). Les appels
-    suivants sont quasi instantanés."""
+    
     global _easyocr_reader_ar, _easyocr_reader_fr
     if _easyocr_reader_ar is None or _easyocr_reader_fr is None:
         import easyocr  # type: ignore

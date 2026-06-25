@@ -695,13 +695,24 @@ export default function FicheEtudiantFullscreen({
                               {pj.uploaded_at && <> · {fmtDate(pj.uploaded_at, { dateStyle: 'medium' })}</>}
                             </p>
                           </div>
-                          {downloadPJFn && (
-                            <button onClick={() => downloadPJFn(pj.id, pj.nom_fichier)}
-                              title="Télécharger"
-                              className="p-2 rounded-lg bg-blue-50 hover:bg-blue-600 text-blue-600 hover:text-white transition-all shrink-0">
-                              <Download size={14}/>
-                            </button>
-                          )}
+                          <div className="flex gap-1 shrink-0">
+                            {viewPJFn && (
+                              <button onClick={() => {
+                                viewPJFn(pj.id).then(url => window.open(url, '_blank'))
+                              }}
+                                title="Ouvrir dans un nouvel onglet"
+                                className="p-2 rounded-lg bg-amber-50 hover:bg-amber-600 text-amber-600 hover:text-white transition-all">
+                                <Eye size={14}/>
+                              </button>
+                            )}
+                            {downloadPJFn && (
+                              <button onClick={() => downloadPJFn(pj.id, pj.nom_fichier)}
+                                title="Télécharger"
+                                className="p-2 rounded-lg bg-blue-50 hover:bg-blue-600 text-blue-600 hover:text-white transition-all">
+                                <Download size={14}/>
+                              </button>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
