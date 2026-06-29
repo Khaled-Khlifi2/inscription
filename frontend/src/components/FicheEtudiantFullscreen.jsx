@@ -246,8 +246,10 @@ export default function FicheEtudiantFullscreen({
     'nom_fr','prenom_fr','nom_ar','prenom_ar','sexe','situation_familiale',
     'date_naissance','lieu_naiss_fr','lieu_naiss_ar','statut',
     'code_gouvernorat','code_type_bac','num_cnss','passeport','num_inscription',
+    'bac_annee','bac_session','bac_moyenne','bac_mention','bac_section',
     'lib_filiere','lib_filiere_ar','telephone_portable','telephone_fixe',
     'adresse_fr','adresse_ar',
+    'contact_nom','contact_prenom','contact_affiliation','contact_adresse','contact_tel',
   ], [])
 
   const load = useCallback(async () => {
@@ -345,13 +347,17 @@ export default function FicheEtudiantFullscreen({
   )
 
   // Champs manquants (pour le panneau d'alerte)
+  const valueFor = key => proposed[key] ?? data?.[key]
   const missing = [
-    !data.telephone_portable && !data.telephone_fixe && 'Téléphone',
-    !data.adresse_fr && 'Adresse',
-    !data.date_naissance && 'Date de naissance',
-    !data.lieu_naiss_fr && 'Lieu de naissance',
-    !data.code_type_bac && 'Type BAC',
-    !data.nom_ar && 'Nom en arabe',
+    !valueFor('telephone_portable') && !valueFor('telephone_fixe') && 'Téléphone',
+    !valueFor('adresse_fr') && 'Adresse',
+    !valueFor('date_naissance') && 'Date de naissance',
+    !valueFor('lieu_naiss_fr') && 'Lieu de naissance',
+    !valueFor('code_type_bac') && 'Type BAC',
+    !valueFor('contact_nom') && 'Nom du contact',
+    !valueFor('contact_prenom') && 'Prénom du contact',
+    !valueFor('contact_tel') && 'Téléphone du contact',
+    !valueFor('nom_ar') && 'Nom en arabe',
     !data.email_verified && 'Email non vérifié',
   ].filter(Boolean)
 
@@ -540,9 +546,15 @@ export default function FicheEtudiantFullscreen({
                     lieu_naiss_ar: 'Lieu de naissance (AR)',
                     sexe: 'Sexe', situation_familiale: 'Situation familiale',
                     code_gouvernorat: 'Gouvernorat', code_type_bac: 'Type BAC',
+                    bac_annee: 'Année du BAC', bac_session: 'Session du BAC',
+                    bac_moyenne: 'Moyenne du BAC', bac_mention: 'Mention du BAC',
+                    bac_section: 'Section du BAC',
                     num_cnss: 'N° CNSS', passeport: 'Passeport',
                     telephone_portable: 'Tél. portable', telephone_fixe: 'Tél. fixe',
                     adresse_fr: 'Adresse (FR)', adresse_ar: 'Adresse (AR)',
+                    contact_nom: 'Nom du contact', contact_prenom: 'Prénom du contact',
+                    contact_affiliation: 'Affiliation du contact',
+                    contact_adresse: 'Adresse du contact', contact_tel: 'Téléphone du contact',
                   }[k] || k
                   const arabic = k.endsWith('_ar')
                   return (
@@ -604,7 +616,39 @@ export default function FicheEtudiantFullscreen({
             </div>
           </Section>
 
-          {/* ─── Section 4 : Filière d'études ───────────────── */}
+          {/* ─── Section 4 : Baccalauréat ────────────────────── */}
+          <Section
+            icon={<GraduationCap size={16}/>}
+            title="Baccalauréat"
+            subtitle="Champs à vérifier par la scolarité avant validation"
+            accent="blue"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-x-5 gap-y-4">
+              <Field label="Année du BAC"  {...fp('bac_annee')}/>
+              <Field label="Session"       {...fp('bac_session')}/>
+              <Field label="Moyenne"       {...fp('bac_moyenne')}/>
+              <Field label="Mention"       {...fp('bac_mention')}/>
+              <Field label="Section"       {...fp('bac_section')}/>
+            </div>
+          </Section>
+
+          {/* ─── Section 5 : Contact en cas de besoin ────────── */}
+          <Section
+            icon={<Phone size={16}/>}
+            title="Contact en cas de besoin"
+            subtitle="Personne à contacter si la scolarité a besoin d'un contact d'urgence"
+            accent="amber"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-5 gap-y-4">
+              <Field label="Nom"         {...fp('contact_nom')}/>
+              <Field label="Prénom"      {...fp('contact_prenom')}/>
+              <Field label="Affiliation" {...fp('contact_affiliation')}/>
+              <Field label="Téléphone"   {...fp('contact_tel')}/>
+              <Field label="Adresse"     {...fp('contact_adresse', { fullWidth: true })}/>
+            </div>
+          </Section>
+
+          {/* ─── Section 6 : Filière d'études ───────────────── */}
           <Section icon={<GraduationCap size={16}/>} title="Filière d'études" accent="gray">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-5 gap-y-4">
               <Field label="Code filière" value={data.cfil} fieldKey="cfil" editMode={false} locked/>
