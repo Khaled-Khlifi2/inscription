@@ -355,7 +355,12 @@ export default function Inscription() {
     date_naissance: '', lieu_naiss_fr: '', lieu_naiss_ar: '',
     sexe: '', situation_familiale: '',
     code_gouvernorat: '', code_type_bac: '', num_cnss: '',
+    // Baccalauréat details
+    bac_annee: '', bac_session: '', bac_moyenne: '', bac_mention: '', bac_section: '',
     telephone_portable: '', telephone_fixe: '', adresse_fr: '', adresse_ar: '',
+    // Contact en cas de besoin
+    contact_nom: '', contact_prenom: '', contact_affiliation: '',
+    contact_adresse: '', contact_tel: '',
   })
   const [saving, setSave]     = useState(false)
   const [submitting, setSub]  = useState(false)
@@ -410,11 +415,23 @@ export default function Inscription() {
       situation_familiale: pick('situation_familiale'),
       code_gouvernorat:    pick('code_gouvernorat'),
       code_type_bac:       pick('code_type_bac'),
+      // Baccalauréat details
+      bac_annee:           pick('bac_annee'),
+      bac_session:         pick('bac_session'),
+      bac_moyenne:         pick('bac_moyenne'),
+      bac_mention:         pick('bac_mention'),
+      bac_section:         pick('bac_section'),
       num_cnss:            pick('num_cnss'),
       telephone_portable:  pick('telephone_portable'),
       telephone_fixe:      pick('telephone_fixe'),
       adresse_fr:          pick('adresse_fr'),
       adresse_ar:          pick('adresse_ar'),
+      // Contact en cas de besoin
+      contact_nom:         pick('contact_nom'),
+      contact_prenom:      pick('contact_prenom'),
+      contact_affiliation: pick('contact_affiliation'),
+      contact_adresse:     pick('contact_adresse'),
+      contact_tel:         pick('contact_tel'),
     })
   }
 
@@ -429,6 +446,9 @@ export default function Inscription() {
     ['code_gouvernorat',   'Gouvernorat'],
     ['telephone_portable', 'Téléphone portable'],
     ['adresse_fr',         'Adresse'],
+    ['contact_nom',        'Nom du contact'],
+    ['contact_prenom',     'Prénom du contact'],
+    ['contact_tel',        'Téléphone du contact'],
   ]
 
   const missingFormFields = REQUIRED_FIELDS.filter(([k]) => !String(form[k] || '').trim())
@@ -683,6 +703,69 @@ export default function Inscription() {
         </div>
       </Section>
 
+      {/* ─── 2ter. Baccalauréat ─── */}
+      <Section
+        icon={<FileText size={16}/>}
+        title="Baccalauréat"
+        subtitle="Détails du diplôme — modifiables"
+        accent="emerald"
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-5 gap-y-4">
+          <EditField
+            label="Année du BAC" placeholder="Ex : 2024"
+            value={form.bac_annee} onChange={set('bac_annee')}
+            disabled={!canEdit}
+          />
+          <div className="flex flex-col gap-1">
+            <label className="text-[0.7rem] font-semibold text-ink uppercase tracking-wider">Session</label>
+            <select
+              className="w-full border-[1.5px] rounded-xl py-2.5 text-sm outline-none bg-white border-fog hover:border-brand/40 focus:border-brand focus:ring-2 focus:ring-brand/10 text-ink px-3.5"
+              value={form.bac_session} onChange={set('bac_session')}
+              disabled={!canEdit}
+            >
+              <option value="">Sélectionner...</option>
+              <option value="principale">Session principale</option>
+              <option value="controle">Session de contrôle</option>
+            </select>
+          </div>
+          <EditField
+            label="Moyenne" placeholder="Ex : 15.50"
+            value={form.bac_moyenne} onChange={set('bac_moyenne')}
+            disabled={!canEdit}
+          />
+          <div className="flex flex-col gap-1">
+            <label className="text-[0.7rem] font-semibold text-ink uppercase tracking-wider">Mention</label>
+            <select
+              className="w-full border-[1.5px] rounded-xl py-2.5 text-sm outline-none bg-white border-fog hover:border-brand/40 focus:border-brand focus:ring-2 focus:ring-brand/10 text-ink px-3.5"
+              value={form.bac_mention} onChange={set('bac_mention')}
+              disabled={!canEdit}
+            >
+              <option value="">Sélectionner...</option>
+              <option value="Très bien">Très bien</option>
+              <option value="Bien">Bien</option>
+              <option value="Assez bien">Assez bien</option>
+              <option value="Passable">Passable</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-1 sm:col-span-2 lg:col-span-3 xl:col-span-4">
+            <label className="text-[0.7rem] font-semibold text-ink uppercase tracking-wider">Section</label>
+            <select
+              className="w-full border-[1.5px] rounded-xl py-2.5 text-sm outline-none bg-white border-fog hover:border-brand/40 focus:border-brand focus:ring-2 focus:ring-brand/10 text-ink px-3.5"
+              value={form.bac_section} onChange={set('bac_section')}
+              disabled={!canEdit}
+            >
+              <option value="">Sélectionner...</option>
+              <option value="Mathématiques">Mathématiques</option>
+              <option value="Sciences expérimentales">Sciences expérimentales</option>
+              <option value="Sciences techniques">Sciences techniques</option>
+              <option value="Informatique">Informatique</option>
+              <option value="Économie et gestion">Économie et gestion</option>
+              <option value="Sport">Sport</option>
+            </select>
+          </div>
+        </div>
+      </Section>
+
       {/* ─── 3. Email ─── */}
       <Section icon={<Mail size={16}/>} title="Adresse email" subtitle="Vérifiée par OTP — sert pour la connexion et les notifications" accent="emerald">
         <EmailSection currentEmail={data.email} disabled={!canEdit} onEmailChanged={async () => await reload()} />
@@ -715,7 +798,47 @@ export default function Inscription() {
         </div>
       </Section>
 
-      {/* ─── 5. Photo + CIN (slots typés) ─── */}
+      {/* ─── 5. Contact en cas de besoin ─── */}
+      <Section
+        icon={<PhoneCall size={16}/>}
+        title="Contact en cas de besoin"
+        subtitle="Personne à contacter en cas d'urgence — modifiable"
+        accent="amber"
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-5 gap-y-4">
+          <EditField
+            label="Nom" placeholder="Nom du contact" required
+            value={form.contact_nom} onChange={set('contact_nom')}
+            error={errors.contact_nom}
+            disabled={!canEdit}
+          />
+          <EditField
+            label="Prénom" placeholder="Prénom du contact" required
+            value={form.contact_prenom} onChange={set('contact_prenom')}
+            error={errors.contact_prenom}
+            disabled={!canEdit}
+          />
+          <EditField
+            label="Affiliation" placeholder="Ex : Parent, Tuteur, Ami"
+            value={form.contact_affiliation} onChange={set('contact_affiliation')}
+            disabled={!canEdit}
+          />
+          <EditField
+            label="Téléphone" placeholder="Ex : +216 XX XXX XXX" required
+            value={form.contact_tel} onChange={set('contact_tel')}
+            error={errors.contact_tel}
+            disabled={!canEdit}
+          />
+          <EditField
+            label="Adresse" placeholder="Adresse du contact"
+            value={form.contact_adresse} onChange={set('contact_adresse')}
+            disabled={!canEdit}
+            fullWidth
+          />
+        </div>
+      </Section>
+
+      {/* ─── 6. Photo + CIN (slots typés) ─── */}
       <Section
         icon={<Camera size={16}/>}
         title="Photo de profil et carte d'identité"

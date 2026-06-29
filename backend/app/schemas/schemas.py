@@ -197,6 +197,12 @@ class EtudiantBase(BaseModel):
     statut: Optional[str] = None
     code_gouvernorat: Optional[str] = None
     code_type_bac: Optional[str] = None
+    # Baccalauréat details
+    bac_annee: Optional[str] = None
+    bac_session: Optional[str] = None
+    bac_moyenne: Optional[float] = None
+    bac_mention: Optional[str] = None
+    bac_section: Optional[str] = None
     num_cnss: Optional[str] = None
     passeport: Optional[str] = None
     cfil: Optional[str] = None
@@ -242,12 +248,24 @@ class EtudiantUpdate(BaseModel):
     statut: Optional[str] = None
     code_gouvernorat: Optional[str] = None
     code_type_bac: Optional[str] = None
+    # Baccalauréat details
+    bac_annee: Optional[str] = None
+    bac_session: Optional[str] = None
+    bac_moyenne: Optional[float] = None
+    bac_mention: Optional[str] = None
+    bac_section: Optional[str] = None
     num_cnss: Optional[str] = None
     passeport: Optional[str] = None
     telephone_portable: Optional[str] = None
     telephone_fixe: Optional[str] = None
     adresse_fr: Optional[str] = None
     adresse_ar: Optional[str] = None
+    # Contact en cas de besoin
+    contact_nom: Optional[str] = None
+    contact_prenom: Optional[str] = None
+    contact_affiliation: Optional[str] = None
+    contact_adresse: Optional[str] = None
+    contact_tel: Optional[str] = None
     niveau_id: Optional[int] = None
 
     @field_validator("nom_ar", "prenom_ar", "lieu_naiss_ar", "adresse_ar")
@@ -265,11 +283,23 @@ class EtudiantSelfComplete(BaseModel):
     situation_familiale: Optional[str] = None
     code_gouvernorat: Optional[str] = None
     code_type_bac: Optional[str] = None
+    # Baccalauréat details
+    bac_annee: Optional[str] = None
+    bac_session: Optional[str] = None
+    bac_moyenne: Optional[float] = None
+    bac_mention: Optional[str] = None
+    bac_section: Optional[str] = None
     num_cnss: Optional[str] = None
     telephone_portable: Optional[str] = None
     telephone_fixe: Optional[str] = None
     adresse_fr: Optional[str] = None
     adresse_ar: Optional[str] = None
+    # Contact en cas de besoin
+    contact_nom: Optional[str] = None
+    contact_prenom: Optional[str] = None
+    contact_affiliation: Optional[str] = None
+    contact_adresse: Optional[str] = None
+    contact_tel: Optional[str] = None
 
 
 class EtudiantSubmitInscription(EtudiantSelfComplete):
@@ -281,6 +311,10 @@ class EtudiantSubmitInscription(EtudiantSelfComplete):
     telephone_fixe: Optional[str] = None
     adresse_fr: Optional[str] = None
     adresse_ar: Optional[str] = None
+    # Contact fields required for submission
+    contact_nom: str
+    contact_prenom: str
+    contact_tel: str
 
 
 class EtudiantPublicRead(BaseModel):
@@ -299,6 +333,12 @@ class EtudiantPublicRead(BaseModel):
     statut: Optional[str]
     code_gouvernorat: Optional[str]
     code_type_bac: Optional[str]
+    # Baccalauréat details
+    bac_annee: Optional[str]
+    bac_session: Optional[str]
+    bac_moyenne: Optional[float]
+    bac_mention: Optional[str]
+    bac_section: Optional[str]
     num_cnss: Optional[str]
     passeport: Optional[str]
     cfil: Optional[str]
@@ -312,6 +352,12 @@ class EtudiantPublicRead(BaseModel):
     telephone_fixe: Optional[str]
     adresse_fr: Optional[str]
     adresse_ar: Optional[str]
+    # Contact en cas de besoin
+    contact_nom: Optional[str]
+    contact_prenom: Optional[str]
+    contact_affiliation: Optional[str]
+    contact_adresse: Optional[str]
+    contact_tel: Optional[str]
     is_inscription_complete: bool
     completed_at: Optional[datetime]
     inscriptions: List[InscriptionRead] = []
