@@ -54,6 +54,9 @@ async def login_etudiant(
     → OTP envoyé à l'email fourni.
     → Retourne `{ require_otp: true, message }`.
     """
+    # Log pour debug
+    print(f"DEBUG: Login request received - identifier={credentials.identifier}, email={credentials.email}, nom_fr={credentials.nom_fr}, prenom_fr={credentials.prenom_fr}")
+    
     result = await AuthService.login_etudiant_request(
         db, credentials.identifier, credentials.email,
         credentials.nom_fr.strip(), credentials.prenom_fr.strip()

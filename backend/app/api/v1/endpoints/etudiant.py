@@ -1,6 +1,6 @@
 """Espace personnel étudiant — dossier, inscription, email, pièces jointes."""
 from fastapi import APIRouter, Depends, File, Form, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import require_etudiant, has_permission
@@ -13,6 +13,7 @@ from app.schemas.schemas import (
 from app.services.auth_service import AuthService
 from app.services.etudiant_service import EtudiantService
 from app.services.file_service import FileService, build_content_disposition
+from app.services.receipt_service import ReceiptService
 
 router = APIRouter(prefix="/etudiant", tags=["Etudiant — Espace personnel"])
 
@@ -106,6 +107,19 @@ async def submit_inscription(
     db: AsyncSession = Depends(get_db),
 ):
     return await EtudiantService.submit_inscription(db, current_user["id"], data)
+
+
+@router.get(
+    "/me/inscription/recu",
+    response_class=HTMLResponse,
+    summary="Generer mon recu d'inscription validee",
+)
+async def inscription_receipt(
+    current_user: dict = Depends(has_permission("inscription:read_own")),
+    db: AsyncSession = Depends(get_db),
+):
+    html = await ReceiptService.build_inscription_receipt_html(db, current_user["id"])
+    return HTMLResponse(content=html)
 
 
 # ── Pièces jointes ─────────────────────────────────────────────────────────────

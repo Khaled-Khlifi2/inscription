@@ -28,9 +28,12 @@ EDITABLE_FIELDS = frozenset({
     "date_naissance", "lieu_naiss_fr", "lieu_naiss_ar",
     "sexe", "situation_familiale",
     "code_gouvernorat", "code_type_bac",
+    "bac_annee", "bac_session", "bac_moyenne", "bac_mention", "bac_section",
     "num_cnss", "passeport",
     "telephone_portable", "telephone_fixe",
     "adresse_fr", "adresse_ar",
+    "contact_nom", "contact_prenom", "contact_affiliation",
+    "contact_adresse", "contact_tel",
 })
 
 
