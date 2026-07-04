@@ -20,7 +20,7 @@ import clsx from 'clsx'
 import toast from 'react-hot-toast'
 
 const ANNEE = '2025/2026'
-const N = s => (s || '').trim().toUpperCase().replace(/\s+/g, ' ')
+const N = s => String(s || '').trim().toUpperCase().replace(/\s+/g, ' ')
 const isModif = (snap, orig) => !!orig && N(snap) !== N(orig)
 
 const fmtDate = (d, opts = { dateStyle: 'long' }) =>
@@ -386,7 +386,17 @@ export default function FicheEtudiantFullscreen({
 
           {/* Identité principale */}
           <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              <code className="text-xs font-mono font-bold bg-gray-900 text-white px-2.5 py-1 rounded-lg tracking-wider">
+                {data.mat_cin}
+              </code>
+              {data.num_inscription && (
+                <code className="text-xs font-mono bg-gray-100 text-gray-600 px-2 py-1 rounded-lg">
+                  N° {data.num_inscription}
+                </code>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-3 mt-2">
               <h1 className="text-2xl font-black text-gray-900 tracking-tight truncate">
                 {data.nom_fr} {data.prenom_fr}
               </h1>
@@ -404,14 +414,6 @@ export default function FicheEtudiantFullscreen({
             </div>
 
             <div className="flex flex-wrap items-center gap-2 mt-2">
-              <code className="text-xs font-mono font-bold bg-gray-900 text-white px-2.5 py-1 rounded-lg tracking-wider">
-                {data.mat_cin}
-              </code>
-              {data.num_inscription && (
-                <code className="text-xs font-mono bg-gray-100 text-gray-600 px-2 py-1 rounded-lg">
-                  N° {data.num_inscription}
-                </code>
-              )}
               {data.cfil && (
                 <span className="text-xs font-bold bg-blue-600 text-white px-2.5 py-1 rounded-lg">
                   {data.cfil}
@@ -580,6 +582,8 @@ export default function FicheEtudiantFullscreen({
           {/* ─── Section 1 : État civil & identité ──────────── */}
           <Section icon={<User size={16}/>} title="État civil & identité" accent="blue">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-5 gap-y-4">
+              <Field label="MAT / CIN"      value={data.mat_cin} fieldKey="mat_cin" editMode={false} locked/>
+              <Field label="N° Inscription" {...fp('num_inscription')}/>
               <Field label="Nom (FR)"           {...fp('nom_fr')}/>
               <Field label="Prénom (FR)"        {...fp('prenom_fr')}/>
               <Field label="الاسم"              {...fp('nom_ar',    { arabic: true })}/>
@@ -591,6 +595,7 @@ export default function FicheEtudiantFullscreen({
               <Field label="Code gouvernorat"   {...fp('code_gouvernorat')}/>
               <Field label="Lieu de naissance (FR)" {...fp('lieu_naiss_fr')}/>
               <Field label="مكان الولادة (AR)"  {...fp('lieu_naiss_ar', { arabic: true, fullWidth: true })}/>
+              
             </div>
           </Section>
 
@@ -599,24 +604,13 @@ export default function FicheEtudiantFullscreen({
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-5 gap-y-4">
               <Field label="Email" value={data.email} fieldKey="email" editMode={false} locked fullWidth/>
               <Field label="Téléphone portable" {...fp('telephone_portable')}/>
-              <Field label="Téléphone fixe"     {...fp('telephone_fixe')}/>
+              <Field label="Téléphone portable 2"     {...fp('telephone_fixe')}/>
               <Field label="Adresse (FR)"       {...fp('adresse_fr', { fullWidth: true })}/>
               <Field label="العنوان (AR)"       {...fp('adresse_ar', { arabic: true, fullWidth: true })}/>
             </div>
           </Section>
 
-          {/* ─── Section 3 : Données administratives ────────── */}
-          <Section icon={<IdCard size={16}/>} title="Données administratives" accent="gray">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-5 gap-y-4">
-              <Field label="MAT / CIN"      value={data.mat_cin} fieldKey="mat_cin" editMode={false} locked/>
-              <Field label="N° Inscription" {...fp('num_inscription')}/>
-              <Field label="Type BAC"       {...fp('code_type_bac')}/>
-              <Field label="N° CNSS"        {...fp('num_cnss')}/>
-              <Field label="N° Passeport"   {...fp('passeport')}/>
-            </div>
-          </Section>
-
-          {/* ─── Section 4 : Baccalauréat ────────────────────── */}
+          {/* ─── Section 3 : Baccalauréat ────────────────────── */}
           <Section
             icon={<GraduationCap size={16}/>}
             title="Baccalauréat"

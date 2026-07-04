@@ -240,15 +240,17 @@ export default function FicheEtudiant({
               </span>
             </div>
             <div className="min-w-0">
-              <h1 className="font-display text-2xl font-black text-ink leading-tight truncate">
+              <div className="flex flex-wrap items-center gap-2">
+                <code className="bg-ink text-white text-xs px-2.5 py-1 rounded-lg font-mono font-bold tracking-wider">{data.mat_cin}</code>
+                {data.num_inscription && <code className="bg-ghost text-steel text-xs px-2.5 py-1 rounded-lg font-mono">N°{data.num_inscription}</code>}
+              </div>
+              <h1 className="font-display text-2xl font-black text-ink leading-tight truncate mt-2">
                 {data.nom_fr} {data.prenom_fr}
               </h1>
               {(data.nom_ar || data.prenom_ar) && (
                 <p className="text-base text-steel mt-0.5 font-medium" dir="rtl">{data.nom_ar} {data.prenom_ar}</p>
               )}
               <div className="flex flex-wrap items-center gap-2 mt-2">
-                <code className="bg-ink text-white text-xs px-2.5 py-1 rounded-lg font-mono font-bold tracking-wider">{data.mat_cin}</code>
-                {data.num_inscription && <code className="bg-ghost text-steel text-xs px-2.5 py-1 rounded-lg font-mono">N°{data.num_inscription}</code>}
                 {data.cfil && <span className="bg-brand text-white text-xs font-black px-2.5 py-1 rounded-lg">{data.cfil}</span>}
                 {data.niveau?.code && <span className="bg-teal-600 text-white text-xs font-bold px-2.5 py-1 rounded-lg capitalize">{data.niveau.code}</span>}
                 <StatutBadge statut={activeInsc?.statut} size="md"/>
@@ -318,6 +320,8 @@ export default function FicheEtudiant({
               <Champ label="Sexe"        value={data.sexe}      fieldKey="sexe"      form={form} onChange={chg} editMode={editMode}
                 type="select" opts={['','M','F']}/>
               <Champ label="Situation familiale" value={data.situation_familiale} fieldKey="situation_familiale" form={form} onChange={chg} editMode={editMode}/>
+              <Champ label="MAT / CIN"       value={data.mat_cin}         locked/>
+              <Champ label="Statut civil"      value={data.statut}       fieldKey="statut"       form={form} onChange={chg} editMode={editMode}/>
             </div>
 
             <Groupe icon={<MapPin size={13}/>} title="Naissance & Origine" color="gray"/>
@@ -327,7 +331,6 @@ export default function FicheEtudiant({
               <Champ label="Gouvernorat"       value={data.code_gouvernorat} fieldKey="code_gouvernorat" form={form} onChange={chg} editMode={editMode}/>
               <Champ label="Lieu naissance (FR)" value={data.lieu_naiss_fr} fieldKey="lieu_naiss_fr" form={form} onChange={chg} editMode={editMode}/>
               <Champ label="مكان الولادة (AR)"  value={data.lieu_naiss_ar} fieldKey="lieu_naiss_ar" form={form} onChange={chg} editMode={editMode} arabic/>
-              <Champ label="Statut civil"      value={data.statut}       fieldKey="statut"       form={form} onChange={chg} editMode={editMode}/>
             </div>
           </div>
 
@@ -336,13 +339,10 @@ export default function FicheEtudiant({
 
             <Groupe icon={<GraduationCap size={13}/>} title="Données académiques" color="gray"/>
             <div className="grid grid-cols-2 gap-3">
-              <Champ label="MAT / CIN"       value={data.mat_cin}         locked/>
               <Champ label="N° Inscription"  value={data.num_inscription} fieldKey="num_inscription" form={form} onChange={chg} editMode={editMode}/>
               <Champ label="Code filière"    value={data.cfil}            locked/>
               <Champ label="Niveau"          value={data.niveau?.libelle || data.niveau?.code} locked/>
               <Champ label="Type BAC"        value={data.code_type_bac}   fieldKey="code_type_bac"   form={form} onChange={chg} editMode={editMode}/>
-              <Champ label="N° CNSS"         value={data.num_cnss}        fieldKey="num_cnss"        form={form} onChange={chg} editMode={editMode}/>
-              <Champ label="Passeport"       value={data.passeport}       fieldKey="passeport"       form={form} onChange={chg} editMode={editMode}/>
             </div>
             <div className="flex flex-col gap-3">
               <Champ label="Libellé filière (FR)"  value={data.lib_filiere}    fieldKey="lib_filiere"    form={form} onChange={chg} editMode={editMode}/>
@@ -364,7 +364,7 @@ export default function FicheEtudiant({
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <Champ label="Tél. portable" value={data.telephone_portable} fieldKey="telephone_portable" form={form} onChange={chg} editMode={editMode}/>
-                <Champ label="Tél. fixe"     value={data.telephone_fixe}     fieldKey="telephone_fixe"     form={form} onChange={chg} editMode={editMode}/>
+                <Champ label="Tél. portable 2"     value={data.telephone_fixe}     fieldKey="telephone_fixe"     form={form} onChange={chg} editMode={editMode}/>
               </div>
               <Champ label="Adresse (FR)" value={data.adresse_fr} fieldKey="adresse_fr" form={form} onChange={chg} editMode={editMode}/>
               <Champ label="العنوان (AR)" value={data.adresse_ar} fieldKey="adresse_ar" form={form} onChange={chg} editMode={editMode} arabic/>

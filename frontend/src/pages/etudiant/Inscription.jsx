@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import {
   getMyProfile, updateMyProfile, submitInscription,
   prepareInscription, uploadPieceJointe, deletePieceJointe,
-  requestEmailChange, confirmEmailChange,
+  requestEmailChange, confirmEmailChange, getInscriptionReceipt,
 } from '../../services/etudiantApi'
 import { Btn, PageLoader, Badge } from '../../components/ui'
 import toast from 'react-hot-toast'
@@ -11,7 +11,7 @@ import {
   Lock, Upload, Trash2, FileText, CheckCircle, AlertCircle,
   Clock, XCircle, RefreshCw, Info, AlertTriangle,
   Edit3, ShieldCheck, User, Globe, Image as ImageIcon,
-  IdCard, FileUp, ChevronRight, Camera, Eye,
+  IdCard, FileUp, ChevronRight, Camera, Eye, Download,
 } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -364,6 +364,7 @@ export default function Inscription() {
   })
   const [saving, setSave]     = useState(false)
   const [submitting, setSub]  = useState(false)
+  const [receiptLoading, setReceiptLoading] = useState(false)
   const [uploadingType, setUploadingType] = useState(null)   // null | 'photo' | 'cin' | 'autre'
   const [errors, setErrors]   = useState({})
   const pdfInputRef           = useRef()
@@ -546,6 +547,20 @@ export default function Inscription() {
       .catch(() => toast.error('Impossible d\'ouvrir le fichier'))
   }
 
+  const handleOpenReceipt = async () => {
+    setReceiptLoading(true)
+    try {
+      const res = await getInscriptionReceipt()
+      const url = URL.createObjectURL(res.data)
+      window.open(url, '_blank', 'noopener')
+      setTimeout(() => URL.revokeObjectURL(url), 120_000)
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Reçu indisponible')
+    } finally {
+      setReceiptLoading(false)
+    }
+  }
+
   if (!data) return <PageLoader />
 
   const allPieces = activeInsc?.pieces_jointes || []
@@ -584,17 +599,25 @@ export default function Inscription() {
 
       {/* ── Bannières statut ── */}
       {isValidee && (
-        <div className="bg-success-soft border border-success/20 rounded-2xl p-5 flex items-center gap-4">
+        <div className="bg-success-soft border border-success/20 rounded-2xl p-5 flex items-center gap-4 flex-wrap">
           <div className="w-12 h-12 bg-success rounded-xl flex items-center justify-center shrink-0">
             <CheckCircle size={22} className="text-white" />
           </div>
-          <div>
+          <div className="flex-1 min-w-[240px]">
             <p className="font-bold text-teal-800 text-lg">Inscription validée</p>
             <p className="text-teal-700 text-sm mt-0.5">
               Votre inscription a été acceptée
               {activeInsc?.traite_le ? ` le ${new Date(activeInsc.traite_le).toLocaleDateString('fr-FR', { dateStyle: 'long' })}` : ''}.
             </p>
           </div>
+          <Btn
+            variant="success"
+            icon={<Download size={15}/>}
+            loading={receiptLoading}
+            onClick={handleOpenReceipt}
+          >
+            Reçu d'inscription
+          </Btn>
         </div>
       )}
 
@@ -690,11 +713,11 @@ export default function Inscription() {
             value={form.code_gouvernorat} onChange={set('code_gouvernorat')}
             disabled={!canEdit}
           />
-          <EditField
+          {/* <EditField
             label="Type BAC" placeholder="Ex : Mathématiques"
             value={form.code_type_bac} onChange={set('code_type_bac')}
             disabled={!canEdit}
-          />
+          /> */}
           <EditField
             label="N° CNSS" placeholder="Ex : 12345678"
             value={form.num_cnss} onChange={set('num_cnss')}
@@ -781,7 +804,7 @@ export default function Inscription() {
             disabled={!canEdit}
           />
           <EditField
-            label="Téléphone fixe" placeholder="71 234 567"
+            label="Téléphone portable 2" placeholder="71 234 567"
             value={form.telephone_fixe} onChange={set('telephone_fixe')}
             icon={<PhoneCall size={15}/>} disabled={!canEdit}
           />
