@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
+import { Link } from 'react-router-dom'
 import {
   getMyProfile, updateMyProfile, submitInscription,
   prepareInscription, uploadPieceJointe, deletePieceJointe,
@@ -16,6 +17,7 @@ import {
 import clsx from 'clsx'
 
 const API_BASE = '/api/v1'
+const REGLEMENT_INTERNE_HREF = '/etudiant/reglement'
 const tokenHeader = () => ({
   Authorization: `Bearer ${sessionStorage.getItem('etudiant_token') || ''}`,
 })
@@ -367,6 +369,7 @@ export default function Inscription() {
   const [receiptLoading, setReceiptLoading] = useState(false)
   const [uploadingType, setUploadingType] = useState(null)   // null | 'photo' | 'cin' | 'autre'
   const [errors, setErrors]   = useState({})
+  const [reglementAccepted, setReglementAccepted] = useState(false)
   const pdfInputRef           = useRef()
 
   const activeInsc  = data?.inscriptions?.find(i => i.annee_universitaire === '2025/2026') || null
@@ -476,6 +479,10 @@ export default function Inscription() {
 
   const handleSubmit = async () => {
     if (!validate()) { toast.error('Veuillez remplir tous les champs obligatoires'); return }
+    if (!reglementAccepted) {
+      toast.error('Vous devez lire et accepter le reglement interne avant la soumission.')
+      return
+    }
     if (!hasPhoto || !hasCin) {
       toast.error('Veuillez d\'abord téléverser votre photo et votre carte d\'identité.')
       return
@@ -484,7 +491,10 @@ export default function Inscription() {
     setSub(true)
     try {
       await updateMyProfile(Object.fromEntries(Object.entries(form).filter(([, v]) => v !== '')))
-      await submitInscription({ ...Object.fromEntries(Object.entries(form).filter(([, v]) => v !== ''))})
+      await submitInscription({
+        ...Object.fromEntries(Object.entries(form).filter(([, v]) => v !== '')),
+        reglement_interne_accepte: true,
+      })
       toast.success('Dossier soumis — en attente de validation ✓')
       await reload()
     } catch (e) { toast.error(e.response?.data?.detail || 'Erreur lors de la soumission') }
@@ -998,6 +1008,7 @@ export default function Inscription() {
         missingFormFields.forEach(([k, label]) => missing.push({ key: k, label }))
         if (!hasPhoto) missing.push({ key: 'photo', label: 'Photo d\'identité' })
         if (!hasCin)   missing.push({ key: 'cin',   label: 'Carte d\'identité (CIN)' })
+        if (!reglementAccepted) missing.push({ key: 'reglement', label: 'Acceptation du reglement interne' })
         const ready = missing.length === 0
 
         return (
@@ -1028,7 +1039,25 @@ export default function Inscription() {
             )}
 
             {/* Boutons d'action */}
-            <div className="p-5 flex flex-wrap gap-3 items-center justify-end">
+            <div className="p-5 flex flex-col gap-4">
+              <label className={clsx(
+                'flex items-start gap-3 rounded-xl border p-4 transition-all cursor-pointer',
+                reglementAccepted
+                  ? 'border-emerald-300 bg-emerald-50'
+                  : 'border-fog bg-white hover:border-amber-300 hover:bg-amber-50/30'
+              )}>
+                <input
+                  type="checkbox"
+                  checked={reglementAccepted}
+                  onChange={e => setReglementAccepted(e.target.checked)}
+                  className="mt-1 h-4 w-4 rounded border-fog text-brand focus:ring-brand"
+                />
+                <span className="text-sm text-ink leading-relaxed">
+                  J'atteste avoir lu le <Link to={REGLEMENT_INTERNE_HREF} className="font-semibold text-brand hover:underline">reglement interne de l'institut</Link> et j'accepte de le respecter.
+                </span>
+              </label>
+
+              <div className="flex flex-wrap gap-3 items-center justify-end">
               <Btn variant="secondary" icon={<Save size={15}/>} loading={saving} onClick={handleSave}>
                 Sauvegarder
               </Btn>
@@ -1040,6 +1069,7 @@ export default function Inscription() {
               >
                 {isRejete ? 'Resoumettre le dossier' : 'Soumettre le dossier'}
               </Btn>
+              </div>
             </div>
           </div>
         )

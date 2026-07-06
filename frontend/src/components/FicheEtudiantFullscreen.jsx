@@ -531,6 +531,7 @@ export default function FicheEtudiantFullscreen({
           </Section>
 
           {/* ─── Alerte modifications proposées par l'étudiant ─── */}
+          {/*
           {nbChg > 0 && (
             <Section
               icon={<AlertTriangle size={16}/>}
@@ -578,6 +579,7 @@ export default function FicheEtudiantFullscreen({
               </div>
             </Section>
           )}
+          */}
 
           {/* ─── Section 1 : État civil & identité ──────────── */}
           <Section icon={<User size={16}/>} title="État civil & identité" accent="blue">

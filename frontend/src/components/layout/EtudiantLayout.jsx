@@ -1,11 +1,12 @@
 import { NavLink, useNavigate, Outlet } from 'react-router-dom'
 import { useEtudiantAuth } from '../../context/EtudiantAuthContext'
-import { GraduationCap, UserCircle, ClipboardCheck, LogOut, ChevronRight } from 'lucide-react'
+import { GraduationCap, UserCircle, ClipboardCheck, LogOut, ChevronRight, ShieldCheck } from 'lucide-react'
 import clsx from 'clsx'
 
 const NAV = [
   { to: '/etudiant/dossier',      icon: UserCircle,     label: 'Mon dossier',     end: true },
   { to: '/etudiant/inscription',  icon: ClipboardCheck, label: 'Mon inscription' },
+  { to: '/etudiant/reglement',    icon: ShieldCheck,    label: 'Reglement interne' },
 ]
 
 export default function EtudiantLayout() {

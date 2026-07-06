@@ -30,6 +30,7 @@ import AdminLayout    from './components/layout/AdminLayout'
 import EtudiantLogin    from './pages/etudiant/Login'
 import EtudiantProfile  from './pages/etudiant/Profile'
 import Inscription      from './pages/etudiant/Inscription'
+import ReglementInterne from './pages/etudiant/ReglementInterne'
 
 /* ── Pages admin ── */
 import AdminLogin           from './pages/admin/Login'
@@ -87,6 +88,7 @@ function EtudiantRouter() {
         <Route element={<RequireEtudiant />}>
           <Route path="dossier"      element={<EtudiantProfile />} />
           <Route path="inscription"  element={<Inscription />} />
+          <Route path="reglement"    element={<ReglementInterne />} />
           <Route index               element={<Navigate to="inscription" replace />} />
         </Route>
         <Route path="*" element={<Navigate to="login" replace />} />
@@ -147,5 +149,4 @@ export default function App() {
     </Routes>
   )
 }
-
 
