@@ -43,6 +43,7 @@ export const confirmEmailChange = (nouvel_email, code) => etudiantHttp.post('/et
 export const prepareInscription = ()     => etudiantHttp.post('/etudiant/me/inscription/preparer')
 export const submitInscription  = (d)    => etudiantHttp.post('/etudiant/me/inscription', d)
 export const getInscriptionReceipt = ()  => etudiantHttp.get('/etudiant/me/inscription/recu', { responseType: 'blob' })
+export const getPiecesJointesConfig = () => etudiantHttp.get('/etudiant/pieces-jointes/config')
 export const uploadPieceJointe  = (inscription_id, file, type_document = 'autre') => {
   const fd = new FormData()
   fd.append('file', file)

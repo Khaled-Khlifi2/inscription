@@ -108,6 +108,8 @@ export const getMonEtudiant       = (id)    => adminHttp.get(`/responsable/etudi
 export const createMonEtudiant    = (d)     => adminHttp.post('/responsable/etudiants', d)
 export const updateMonEtudiant    = (id, d) => adminHttp.patch(`/responsable/etudiants/${id}`, d)
 export const decideInscription    = (id, d) => adminHttp.post(`/responsable/inscriptions/${id}/decision`, d)
+export const rejectPJResponsable  = (pj_id, motif_refus) =>
+  adminHttp.post(`/responsable/pieces-jointes/${pj_id}/refuser`, { motif_refus })
 export const downloadPJResponsable = async (pj_id, nom) => {
   const res = await adminHttp.get(`/responsable/pieces-jointes/${pj_id}/download`, { responseType: 'blob' })
   const url = URL.createObjectURL(res.data)
@@ -129,6 +131,14 @@ export const downloadPJScolarite = async (pj_id, nom) => {
 export const viewPJScolarite = async (pj_id) => {
   const res = await adminHttp.get(`/scolarite/pieces-jointes/${pj_id}/download`, { responseType: 'blob' })
   return URL.createObjectURL(res.data)
+}
+export const rejectPJScolarite = (pj_id, motif_refus) =>
+  adminHttp.post(`/scolarite/pieces-jointes/${pj_id}/refuser`, { motif_refus })
+
+export const getPiecesJointesConfigAdmin = () => {
+  const role = sessionStorage.getItem('admin_role')
+  const base = role === 'responsable' ? '/responsable' : '/scolarite'
+  return adminHttp.get(`${base}/pieces-jointes/config`).then(r => r.data)
 }
 export const importXlsxResponsable = (file, update_existing = true) => {
   const fd = new FormData(); fd.append('file', file)

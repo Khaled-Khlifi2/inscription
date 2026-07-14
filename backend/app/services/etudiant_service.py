@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 import asyncio
 
 from app.models.models import Etudiant, Inscription, PieceJointe, Role, UserRole
+from app.core.pieces_jointes_config import get_piece_definition, get_required_piece_types
 from app.schemas.schemas import (
     EtudiantCreate, EtudiantSelfComplete,
     EtudiantSubmitInscription, EtudiantUpdate, InscriptionDecision,
@@ -66,6 +67,28 @@ def _load_opts():
         selectinload(Etudiant.inscriptions).selectinload(Inscription.pieces_jointes),
         selectinload(Etudiant.niveau),
     ]
+
+
+def _piece_slot_label(piece: PieceJointe) -> str:
+    try:
+        return get_piece_definition(piece.type_document).get("label") or piece.type_document
+    except Exception:
+        return piece.type_document or "Piece jointe"
+
+
+def build_rejection_message_with_pieces(insc: Inscription, message_rejet: str) -> str:
+    parts = [message_rejet.strip()]
+    refused_pieces = [
+        p for p in (insc.pieces_jointes or [])
+        if p.statut == "refusee" and p.motif_refus
+    ]
+    if refused_pieces:
+        details = "\n".join(
+            f"- {_piece_slot_label(p)}: {p.motif_refus.strip()}"
+            for p in refused_pieces
+        )
+        parts.append(f"Pieces jointes refusees:\n{details}")
+    return "\n\n".join(parts)
 
 
 class EtudiantService:
@@ -217,7 +240,7 @@ class EtudiantService:
 
         # Récupérer (ou créer) l'inscription brouillon pour l'année en cours
         insc = (await db.execute(
-            select(Inscription).where(
+            select(Inscription).options(selectinload(Inscription.pieces_jointes)).where(
                 Inscription.etudiant_id == e.id,
                 Inscription.annee_universitaire == ANNEE_EN_COURS,
             )
@@ -259,7 +282,7 @@ class EtudiantService:
             raise HTTPException(status_code=400, detail="Verifiez votre email avant de préparer l'inscription")
 
         insc = (await db.execute(
-            select(Inscription).where(
+            select(Inscription).options(selectinload(Inscription.pieces_jointes)).where(
                 Inscription.etudiant_id == e.id,
                 Inscription.annee_universitaire == ANNEE_EN_COURS,
             )
@@ -301,7 +324,7 @@ class EtudiantService:
             )
 
         insc = (await db.execute(
-            select(Inscription).where(
+            select(Inscription).options(selectinload(Inscription.pieces_jointes)).where(
                 Inscription.etudiant_id == e.id,
                 Inscription.annee_universitaire == ANNEE_EN_COURS,
             )
@@ -311,6 +334,19 @@ class EtudiantService:
             raise HTTPException(status_code=409, detail="Inscription deja validee")
         if insc and insc.statut in ("soumis", "en_attente"):
             raise HTTPException(status_code=409, detail="Inscription déjà soumise (en attente de décision)")
+
+        required_piece_types = set(get_required_piece_types())
+        provided_piece_types = {
+            p.type_document
+            for p in (insc.pieces_jointes if insc else [])
+            if p.statut != "refusee"
+        }
+        missing_piece_types = sorted(required_piece_types - provided_piece_types)
+        if missing_piece_types:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Pieces jointes obligatoires manquantes : {', '.join(missing_piece_types)}",
+            )
 
         payload = data.model_dump(exclude_none=True)
         new_proposed = _compute_proposed(e, insc.proposed_data if insc else None, payload)
@@ -440,8 +476,9 @@ class EtudiantService:
         else:  # rejeter
             if not body.message_rejet or not body.message_rejet.strip():
                 raise HTTPException(status_code=422, detail="Un message de rejet est obligatoire")
+            full_message = build_rejection_message_with_pieces(insc, body.message_rejet)
             insc.statut        = "rejetee"
-            insc.message_rejet = body.message_rejet.strip()
+            insc.message_rejet = full_message
             insc.traite_par_id = None
             insc.traite_le     = now
             e.is_inscription_complete = False
@@ -450,7 +487,7 @@ class EtudiantService:
                 asyncio.create_task(asyncio.to_thread(
                     EmailService.send_rejection_notification,
                     e.email, f"{e.prenom_fr} {e.nom_fr}",
-                    body.message_rejet, insc.annee_universitaire,
+                    full_message, insc.annee_universitaire,
                 ))
 
         await db.flush()

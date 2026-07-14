@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from passlib.context import CryptContext
 
 from app.core.dependencies import require_scolarite, has_permission
+from app.core.pieces_jointes_config import load_pieces_jointes_config
 from app.db.session import get_db
 from sqlalchemy import func
 from app.models.models import Etudiant, Inscription, Niveau, UserResponsable
@@ -17,7 +18,8 @@ from app.schemas.schemas import (
     EtudiantAdminRead, EtudiantCreate, EtudiantUpdate,
     ExportRequest, ImportPreviewResponse, ImportResult, InscriptionDecision,
     NiveauCreate, NiveauRead,
-    PaginatedEtudiants, ResponsableCreate, ResponsableRead,
+    PaginatedEtudiants, PieceJointeRead, PieceJointeReject,
+    ResponsableCreate, ResponsableRead,
 )
 from app.services.etudiant_service import EtudiantService, ANNEE_EN_COURS
 from app.services.export_service import ExportService
@@ -483,6 +485,16 @@ async def decide_inscription(
 #  PIÈCES JOINTES (lecture pour scolarité)
 # ═══════════════════════════════════════════════════════════
 @router.get(
+    "/pieces-jointes/config",
+    summary="Configuration des pieces jointes demandees",
+)
+async def pieces_jointes_config(
+    current_user: dict = Depends(has_permission("note:read_all")),
+):
+    return load_pieces_jointes_config()
+
+
+@router.get(
     "/pieces-jointes/{piece_jointe_id}/download",
     summary="Télécharger / visualiser une pièce jointe",
 )
@@ -499,3 +511,17 @@ async def download_piece(
         media_type=media_type,
         headers={"Content-Disposition": build_content_disposition(disposition, pj.nom_fichier)},
     )
+
+
+@router.post(
+    "/pieces-jointes/{piece_jointe_id}/refuser",
+    response_model=PieceJointeRead,
+    summary="Refuser une piece jointe et notifier l'etudiant",
+)
+async def reject_piece(
+    piece_jointe_id: int,
+    body: PieceJointeReject,
+    current_user: dict = Depends(has_permission("inscription:approve_all")),
+    db: AsyncSession = Depends(get_db),
+):
+    return await FileService.reject_piece_jointe(db, piece_jointe_id, body.motif_refus)

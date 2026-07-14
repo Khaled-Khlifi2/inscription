@@ -6,7 +6,7 @@
  *
  * Utilisé par les rôles : scolarité et responsable de niveau.
  */
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import {
   X, Edit2, Save, AlertTriangle, CheckCircle,
@@ -16,11 +16,26 @@ import {
   Image as ImageIcon, Eye, ScanLine, Camera,
 } from 'lucide-react'
 import { Btn } from './ui'
+import { getPiecesJointesConfigAdmin } from '../services/adminApi'
 import clsx from 'clsx'
 import toast from 'react-hot-toast'
 
 const ANNEE = '2025/2026'
+const FALLBACK_PIECES_CONFIG = {
+  default_case: 'nouveau_etudiant',
+  cases: {
+    nouveau_etudiant: {
+      pieces: [
+        { type: 'photo', label: 'Photo de profil', format: 'image', required: true },
+        { type: 'cin', label: "Carte d'identite (CIN)", format: 'image', required: true },
+        { type: 'recu_paiement', label: 'Recu de paiement', format: 'pdf', required: true },
+        { type: 'releve_bac', label: 'Releve de notes du BAC', format: 'pdf', required: true },
+      ],
+    },
+  },
+}
 const N = s => String(s || '').trim().toUpperCase().replace(/\s+/g, ' ')
+const normalizePieceType = s => String(s || '').trim().toLowerCase()
 const isModif = (snap, orig) => !!orig && N(snap) !== N(orig)
 
 const fmtDate = (d, opts = { dateStyle: 'long' }) =>
@@ -139,7 +154,7 @@ function Section({ icon, title, subtitle, accent = 'gray', children, action }) {
 }
 
 /* ─── Aperçu image (charge le blob via viewPJFn) ──────────── */
-function PieceImagePreview({ piece, viewPJFn, downloadPJFn, label, accent = 'blue' }) {
+function PieceImagePreview({ piece, viewPJFn, downloadPJFn, rejectPJFn, onRejected, label, accent = 'blue' }) {
   const [url, setUrl]   = useState(null)
   const [error, setErr] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -171,11 +186,38 @@ function PieceImagePreview({ piece, viewPJFn, downloadPJFn, label, accent = 'blu
         </span>
   ) : null
 
+  const refused = piece?.statut === 'refusee'
+
+  const handleReject = async () => {
+    if (!piece || !rejectPJFn) return
+    const motif = window.prompt(`Motif du refus pour "${piece.nom_fichier}" :`)
+    if (!motif?.trim()) return
+    try {
+      await rejectPJFn(piece.id, motif.trim())
+      toast.success('Motif de refus enregistre')
+      onRejected?.()
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Erreur lors du refus de la piece')
+    }
+  }
+
   return (
-    <div className={clsx('rounded-xl border overflow-hidden', accentClasses)}>
+    <div className={clsx('rounded-xl border overflow-hidden', refused ? 'border-red-300 bg-red-50' : accentClasses)}>
       <div className="px-3 py-2 bg-white border-b border-gray-200 flex items-center gap-2">
         <p className="text-xs font-bold uppercase tracking-wider text-gray-700 flex-1">{label}</p>
+        {refused && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wider bg-red-100 text-red-700 rounded-full">
+            <XCircle size={10}/> Refusee
+          </span>
+        )}
         {ocrBadge}
+        {piece && rejectPJFn && !refused && (
+          <button onClick={handleReject}
+            title="Refuser cette piece"
+            className="p-1 rounded text-gray-500 hover:text-red-600 transition-colors">
+            <XCircle size={13}/>
+          </button>
+        )}
         {piece && downloadPJFn && (
           <button onClick={() => downloadPJFn(piece.id, piece.nom_fichier)}
             title="Télécharger" className="p-1 rounded text-gray-500 hover:text-blue-600 transition-colors">
@@ -223,6 +265,11 @@ function PieceImagePreview({ piece, viewPJFn, downloadPJFn, label, accent = 'blu
           <p className="text-[0.65rem] text-gray-400 mt-0.5">
             {(piece.taille_octets / 1024).toFixed(0)} KB
           </p>
+          {refused && piece.motif_refus && (
+            <p className="mt-2 text-[0.7rem] leading-relaxed text-red-700 bg-red-50 border border-red-100 rounded-lg px-2 py-1">
+              Motif : {piece.motif_refus}
+            </p>
+          )}
         </div>
       )}
     </div>
@@ -232,7 +279,7 @@ function PieceImagePreview({ piece, viewPJFn, downloadPJFn, label, accent = 'blu
 /* ─── Composant principal ─────────────────────────────────── */
 export default function FicheEtudiantFullscreen({
   etudiantId, onClose, onRefresh,
-  loadFn, saveFn, deactivateFn, resetFn, decideFn, downloadPJFn, viewPJFn,
+  loadFn, saveFn, deactivateFn, resetFn, decideFn, downloadPJFn, viewPJFn, rejectPJFn,
 }) {
   const [data, setData]     = useState(null)
   const [editMode, setEdit] = useState(false)
@@ -241,6 +288,8 @@ export default function FicheEtudiantFullscreen({
   const [deciding, setDec]  = useState(false)
   const [rejectMsg, setRM]  = useState('')
   const [showReject, setSR] = useState(false)
+  const [piecesConfig, setPiecesConfig] = useState(FALLBACK_PIECES_CONFIG)
+  const bodyRef = useRef(null)
 
   const KEYS = useMemo(() => [
     'nom_fr','prenom_fr','nom_ar','prenom_ar','sexe','situation_familiale',
@@ -259,7 +308,39 @@ export default function FicheEtudiantFullscreen({
     catch { toast.error('Erreur de chargement') }
   }, [etudiantId, loadFn])
 
+  const refreshWithoutJump = useCallback(async () => {
+    if (!etudiantId || !loadFn) return
+    const scrollTop = bodyRef.current?.scrollTop ?? 0
+    try {
+      setData(await loadFn(etudiantId))
+      requestAnimationFrame(() => {
+        if (bodyRef.current) bodyRef.current.scrollTop = scrollTop
+      })
+    } catch {
+      toast.error('Erreur de chargement')
+    }
+  }, [etudiantId, loadFn])
+
+  const handleRejectPiece = async (pj) => {
+    if (!pj || !rejectPJFn) return
+    const motif = window.prompt(`Motif du refus pour "${pj.nom_fichier}" :`)
+    if (!motif?.trim()) return
+    try {
+      await rejectPJFn(pj.id, motif.trim())
+      toast.success('Motif de refus enregistre')
+      await refreshWithoutJump()
+      onRefresh?.()
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Erreur lors du refus de la piece')
+    }
+  }
+
   useEffect(() => { load() }, [load])
+  useEffect(() => {
+    getPiecesJointesConfigAdmin()
+      .then(cfg => setPiecesConfig(cfg || FALLBACK_PIECES_CONFIG))
+      .catch(() => setPiecesConfig(FALLBACK_PIECES_CONFIG))
+  }, [])
   useEffect(() => {
     const h = e => { if (e.key === 'Escape' && !editMode) onClose() }
     document.addEventListener('keydown', h)
@@ -473,7 +554,7 @@ export default function FicheEtudiantFullscreen({
       </div>
 
       {/* ══ CORPS — sections empilées en pleine largeur ════════ */}
-      <div className="flex-1 overflow-y-auto">
+      <div ref={bodyRef} className="flex-1 overflow-y-auto">
         <div className="w-full px-8 py-6 flex flex-col gap-5">
 
           {/* ─── Statut du dossier (full width) ─────────────── */}
@@ -660,7 +741,10 @@ export default function FicheEtudiantFullscreen({
             const pieces = insc?.pieces_jointes || []
             const photo  = pieces.find(p => p.type_document === 'photo') || null
             const cin    = pieces.find(p => p.type_document === 'cin')   || null
-            const autres = pieces.filter(p => p.type_document === 'autre' || !p.type_document)
+            const currentPiecesCase = piecesConfig.cases?.[piecesConfig.default_case] || FALLBACK_PIECES_CONFIG.cases.nouveau_etudiant
+            const documentConfigs = (currentPiecesCase.pieces || []).filter(p => p.format === 'pdf')
+            const pieceForType = type => pieces.find(p => normalizePieceType(p.type_document) === normalizePieceType(type)) || null
+            const documentSlots = documentConfigs.map(conf => ({ conf, piece: pieceForType(conf.type) }))
             const cinAccent = cin
               ? (cin.ocr_verified ? 'emerald' : 'amber')
               : 'red'
@@ -681,6 +765,8 @@ export default function FicheEtudiantFullscreen({
                       piece={photo}
                       viewPJFn={viewPJFn}
                       downloadPJFn={downloadPJFn}
+                      rejectPJFn={rejectPJFn}
+                      onRejected={async () => { await refreshWithoutJump(); onRefresh?.() }}
                       label="Photo de profil"
                       accent="blue"
                     />
@@ -688,6 +774,8 @@ export default function FicheEtudiantFullscreen({
                       piece={cin}
                       viewPJFn={viewPJFn}
                       downloadPJFn={downloadPJFn}
+                      rejectPJFn={rejectPJFn}
+                      onRejected={async () => { await refreshWithoutJump(); onRefresh?.() }}
                       label="Carte d'identité (CIN)"
                       accent={cinAccent}
                     />
@@ -714,29 +802,64 @@ export default function FicheEtudiantFullscreen({
                 {/* ─── Section 5b : Autres pièces (PDF) ──────────── */}
                 <Section
                   icon={<Paperclip size={16}/>}
-                  title="Autres pièces jointes"
-                  subtitle={autres.length
-                    ? `${autres.length} document${autres.length > 1 ? 's' : ''} (relevés, diplômes, attestations…)`
-                    : "Aucun autre document fourni"}
+                  title="Pieces jointes configurees"
+                  subtitle="Chaque document est separe selon le type defini dans le fichier de configuration"
                   accent="gray"
                 >
-                  {autres.length > 0 ? (
+                  {documentSlots.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {autres.map(pj => (
-                        <div key={pj.id}
-                          className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-xl hover:border-blue-300 hover:shadow-sm transition-all">
+                      {documentSlots.map(({ conf, piece: pj }) => (
+                        <div key={conf.type}
+                          className={clsx(
+                            'flex items-center gap-3 p-3 bg-white border rounded-xl hover:shadow-sm transition-all',
+                            !pj
+                              ? 'border-dashed border-gray-300 bg-gray-50'
+                              : pj.statut === 'refusee'
+                              ? 'border-red-300 bg-red-50/40'
+                              : 'border-gray-200 hover:border-blue-300'
+                          )}>
                           <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center shrink-0">
                             <FileText size={18} className="text-red-500"/>
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-gray-800 truncate">{pj.nom_fichier}</p>
+                            <div className="flex items-center gap-2 min-w-0">
+                              <p className="text-sm font-semibold text-gray-800 truncate">{conf.label}</p>
+                              {!pj && conf.required && (
+                                <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 text-[0.62rem] font-bold uppercase tracking-wider bg-amber-100 text-amber-700 rounded-full">
+                                  Manquant
+                                </span>
+                              )}
+                              {pj?.statut === 'refusee' && (
+                                <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 text-[0.62rem] font-bold uppercase tracking-wider bg-red-100 text-red-700 rounded-full">
+                                  <XCircle size={9}/> Refusee
+                                </span>
+                              )}
+                            </div>
                             <p className="text-[0.65rem] text-gray-400 mt-0.5">
-                              {(pj.taille_octets / 1024).toFixed(0)} KB
-                              {pj.uploaded_at && <> · {fmtDate(pj.uploaded_at, { dateStyle: 'medium' })}</>}
+                              {pj ? (
+                                <>
+                                  {pj.nom_fichier} - {(pj.taille_octets / 1024).toFixed(0)} KB
+                                  {pj.uploaded_at && <> · {fmtDate(pj.uploaded_at, { dateStyle: 'medium' })}</>}
+                                </>
+                              ) : (
+                                conf.description || 'Document non fourni'
+                              )}
                             </p>
+                            {pj?.statut === 'refusee' && pj.motif_refus && (
+                              <p className="mt-1 text-[0.68rem] leading-relaxed text-red-700">
+                                Motif : {pj.motif_refus}
+                              </p>
+                            )}
                           </div>
                           <div className="flex gap-1 shrink-0">
-                            {viewPJFn && (
+                            {pj && rejectPJFn && pj.statut !== 'refusee' && (
+                              <button onClick={() => handleRejectPiece(pj)}
+                                title="Refuser cette piece"
+                                className="p-2 rounded-lg bg-red-50 hover:bg-red-600 text-red-600 hover:text-white transition-all">
+                                <XCircle size={14}/>
+                              </button>
+                            )}
+                            {pj && viewPJFn && (
                               <button onClick={() => {
                                 viewPJFn(pj.id).then(url => window.open(url, '_blank'))
                               }}
@@ -745,7 +868,7 @@ export default function FicheEtudiantFullscreen({
                                 <Eye size={14}/>
                               </button>
                             )}
-                            {downloadPJFn && (
+                            {pj && downloadPJFn && (
                               <button onClick={() => downloadPJFn(pj.id, pj.nom_fichier)}
                                 title="Télécharger"
                                 className="p-2 rounded-lg bg-blue-50 hover:bg-blue-600 text-blue-600 hover:text-white transition-all">

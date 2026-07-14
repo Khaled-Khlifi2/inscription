@@ -7,7 +7,7 @@ import {
   listEtudiants, statsEtudiants, getEtudiant, updateEtudiant,
   deactivateEtudiant, resetInscription, createEtudiant,
   listNiveaux, downloadPJScolarite, viewPJScolarite,
-  decideInscriptionScolarite,
+  decideInscriptionScolarite, rejectPJScolarite,
 } from '../../services/adminApi'
 import FicheEtudiantFullscreen from '../../components/FicheEtudiantFullscreen'
 import { Btn, Input, Pagination, SectionHead } from '../../components/ui'
@@ -532,6 +532,7 @@ export default function EtudiantsList() {
           decideFn={(inscId, d) => decideInscriptionScolarite(inscId, d)}
           downloadPJFn={(pjId, nom) => downloadPJScolarite(pjId, nom)}
           viewPJFn={(pjId) => viewPJScolarite(pjId)}
+          rejectPJFn={(pjId, motif) => rejectPJScolarite(pjId, motif)}
           role="scolarite"
         />
       )}

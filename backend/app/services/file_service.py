@@ -10,6 +10,7 @@ Stockage local dans uploads/pieces_jointes/
 """
 import os
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import quote
 
@@ -18,17 +19,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.models import Inscription, PieceJointe, Etudiant
+from app.core.pieces_jointes_config import get_piece_definition
 from app.services.ocr_service import verify_cin_image
 from app.services.face_service import verify_photo_face
 
 UPLOAD_DIR = Path("uploads/pieces_jointes")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-
-MAX_PDF_SIZE   = 10 * 1024 * 1024   # 10 MB
-MAX_IMAGE_SIZE =  5 * 1024 * 1024   # 5 MB
-
-ALLOWED_TYPES = {"photo", "cin", "autre"}
-SINGLE_SLOT_TYPES = {"photo", "cin"}      # un seul exemplaire par inscription
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 IMAGE_MIMES = {
@@ -68,11 +64,7 @@ class FileService:
     ) -> PieceJointe:
         # ── Validation du type de pièce ───────────────────────────────────────
         type_document = (type_document or "autre").lower().strip()
-        if type_document not in ALLOWED_TYPES:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Type de pièce inconnu. Valeurs acceptées : {', '.join(sorted(ALLOWED_TYPES))}.",
-            )
+        piece_conf = get_piece_definition(type_document)
 
         # ── Vérifier que l'inscription appartient à l'étudiant ────────────────
         result = await db.execute(
@@ -89,21 +81,22 @@ class FileService:
 
         # ── Validation extension / taille selon le type ───────────────────────
         ext = _ext(file.filename or "")
-        if type_document in {"photo", "cin"}:
+        file_format = piece_conf.get("format")
+        if file_format == "image":
             if ext not in IMAGE_EXTENSIONS:
                 raise HTTPException(
                     status_code=400,
                     detail="Format invalide : pour ce type, seules les images JPG, JPEG, PNG ou WEBP sont acceptées.",
                 )
-            max_size = MAX_IMAGE_SIZE
+            max_size = int(piece_conf.get("max_mb", 5)) * 1024 * 1024
             mime_default = "image/jpeg"
-        else:  # autre → PDF
+        else:
             if ext not in PDF_EXTENSIONS:
                 raise HTTPException(
                     status_code=400,
-                    detail="Format invalide : seuls les fichiers PDF sont acceptés pour les autres documents.",
+                    detail="Format invalide : seuls les fichiers PDF sont acceptes pour ce document.",
                 )
-            max_size = MAX_PDF_SIZE
+            max_size = int(piece_conf.get("max_mb", 10)) * 1024 * 1024
             mime_default = "application/pdf"
 
         # ── Lire le contenu (vérification taille) ─────────────────────────────
@@ -159,7 +152,7 @@ class FileService:
                 )
 
         # ── Si type à slot unique : remplacer l'ancien fichier ────────────────
-        if type_document in SINGLE_SLOT_TYPES:
+        if piece_conf.get("slot") == "single":
             old_res = await db.execute(
                 select(PieceJointe).where(
                     PieceJointe.inscription_id == inscription_id,
@@ -190,6 +183,7 @@ class FileService:
             taille_octets=len(content),
             ocr_verified=ocr_verified,
             ocr_message=ocr_message,
+            statut="en_attente",
         )
         db.add(pj)
         await db.flush()
@@ -222,6 +216,39 @@ class FileService:
 
         await db.delete(pj)
         await db.flush()
+
+    @staticmethod
+    async def reject_piece_jointe(
+        db: AsyncSession,
+        piece_jointe_id: int,
+        motif_refus: str,
+        requester_niveau_id: int | None = None,
+    ) -> PieceJointe:
+        motif_refus = (motif_refus or "").strip()
+        if not motif_refus:
+            raise HTTPException(status_code=422, detail="Le motif de refus est obligatoire")
+
+        query = (
+            select(PieceJointe, Inscription)
+            .join(Inscription, PieceJointe.inscription_id == Inscription.id)
+            .where(PieceJointe.id == piece_jointe_id)
+        )
+        if requester_niveau_id is not None:
+            query = query.where(Inscription.niveau_id == requester_niveau_id)
+
+        result = await db.execute(query)
+        row = result.one_or_none()
+        if not row:
+            raise HTTPException(status_code=404, detail="Piece jointe introuvable")
+
+        pj, insc = row
+        pj.statut = "refusee"
+        pj.motif_refus = motif_refus
+        pj.refused_at = datetime.now(timezone.utc)
+        await db.flush()
+        await db.refresh(pj)
+
+        return pj
 
     @staticmethod
     async def get_piece_jointe(

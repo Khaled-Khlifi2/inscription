@@ -1,0 +1,71 @@
+{
+  "default_case": "nouveau_etudiant",
+  "cases": {
+    "nouveau_etudiant": {
+      "label": "Nouveaux etudiants",
+      "description": "Pieces demandees pour une premiere inscription.",
+      "match": {
+        "default": true
+      },
+      "pieces": [
+        {
+          "type": "photo",
+          "label": "Photo de profil",
+          "description": "Visage clair, fond neutre - sera affichee sur la fiche",
+          "required": true,
+          "slot": "single",
+          "format": "image",
+          "max_mb": 5,
+          "verification": "face"
+        },
+        {
+          "type": "cin",
+          "label": "Carte d'identite (CIN)",
+          "description": "Image lisible de la carte d'identite",
+          "required": true,
+          "slot": "single",
+          "format": "image",
+          "max_mb": 5,
+          "verification": "cin_ocr"
+        },
+        {
+          "type": "recu_paiement",
+          "label": "Recu de paiement",
+          "description": "Justificatif des frais d'inscription",
+          "required": true,
+          "slot": "single",
+          "format": "pdf",
+          "max_mb": 10
+        },
+        {
+          "type": "releve_bac",
+          "label": "Releve de notes du BAC",
+          "description": "Releve officiel des notes du baccalaureat",
+          "required": true,
+          "slot": "single",
+          "format": "pdf",
+          "max_mb": 10
+        },
+        {
+          "type": "Diplome de bac",
+          "label": "Diplome du BAC",
+          "description": "Diplome officiel du baccalaureat",
+          "required": true,
+          "slot": "single",
+          "format": "pdf",
+          "max_mb": 10
+        },
+        {
+          "type": "Extrait de naissance",
+          "label": "Extrait de naissance",
+          "description": "Extrait officiel de naissance",
+          "required": true,
+          "slot": "single",
+          "format": "pdf",
+          "max_mb": 10
+        }
+        
+      ]
+    }
+  }
+}

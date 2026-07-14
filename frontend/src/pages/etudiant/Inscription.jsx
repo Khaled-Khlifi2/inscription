@@ -4,6 +4,7 @@ import {
   getMyProfile, updateMyProfile, submitInscription,
   prepareInscription, uploadPieceJointe, deletePieceJointe,
   requestEmailChange, confirmEmailChange, getInscriptionReceipt,
+  getPiecesJointesConfig,
 } from '../../services/etudiantApi'
 import { Btn, PageLoader, Badge } from '../../components/ui'
 import toast from 'react-hot-toast'
@@ -21,6 +22,21 @@ const REGLEMENT_INTERNE_HREF = '/etudiant/reglement'
 const tokenHeader = () => ({
   Authorization: `Bearer ${sessionStorage.getItem('etudiant_token') || ''}`,
 })
+const FALLBACK_PIECES_CONFIG = {
+  default_case: 'nouveau_etudiant',
+  cases: {
+    nouveau_etudiant: {
+      label: 'Nouveaux etudiants',
+      pieces: [
+        { type: 'photo', label: 'Photo de profil', description: 'Visage clair, fond neutre', required: true, slot: 'single', format: 'image', max_mb: 5 },
+        { type: 'cin', label: "Carte d'identite (CIN)", description: 'Image lisible', required: true, slot: 'single', format: 'image', max_mb: 5 },
+        { type: 'recu_paiement', label: 'Recu de paiement', description: "Justificatif de paiement des frais d'inscription", required: true, slot: 'single', format: 'pdf', max_mb: 10 },
+        { type: 'releve_bac', label: 'Releve de notes du BAC', description: 'Releve officiel des notes du baccalaureat', required: true, slot: 'single', format: 'pdf', max_mb: 10 },
+      ],
+    },
+  },
+}
+const normalizePieceType = type => String(type || '').trim().toLowerCase()
 
 // ══════════════════════════════════════════════════════════════
 //   COMPOSANTS UI RÉUTILISABLES
@@ -274,7 +290,7 @@ function ImageUploadSlot({
           <p className="text-xs text-mist mt-0.5">{description}</p>
         </div>
         {piece && (
-          <Badge color={piece.ocr_verified ? 'green' : showOcrStatus ? 'amber' : 'blue'}>
+          <Badge color={piece.statut === 'refusee' ? 'red' : piece.ocr_verified ? 'green' : showOcrStatus ? 'amber' : 'blue'}>
             {piece.ocr_verified ? '✓ Vérifié' : showOcrStatus ? 'À revoir' : 'Téléversé'}
           </Badge>
         )}
@@ -320,6 +336,11 @@ function ImageUploadSlot({
                   {(piece.taille_octets / 1024).toFixed(0)} KB
                   {piece.uploaded_at && ` · ${new Date(piece.uploaded_at).toLocaleDateString('fr-FR')}`}
                 </p>
+                {piece.statut === 'refusee' && piece.motif_refus && (
+                  <p className="mt-1 text-xs text-red-700 leading-relaxed">
+                    Motif du refus : {piece.motif_refus}
+                  </p>
+                )}
               </div>
               <div className="flex gap-1 shrink-0">
                 <button type="button" onClick={onView}
@@ -349,6 +370,7 @@ function ImageUploadSlot({
 // ══════════════════════════════════════════════════════════════
 export default function Inscription() {
   const [data, setData]       = useState(null)
+  const [piecesConfig, setPiecesConfig] = useState(FALLBACK_PIECES_CONFIG)
   const [originalNames, setOriginalNames] = useState({
     nom_fr: '', prenom_fr: '', nom_ar: '', prenom_ar: '', date_naissance: '',
   })
@@ -370,7 +392,6 @@ export default function Inscription() {
   const [uploadingType, setUploadingType] = useState(null)   // null | 'photo' | 'cin' | 'autre'
   const [errors, setErrors]   = useState({})
   const [reglementAccepted, setReglementAccepted] = useState(false)
-  const pdfInputRef           = useRef()
 
   const activeInsc  = data?.inscriptions?.find(i => i.annee_universitaire === '2025/2026') || null
   const isBrouillon = activeInsc?.statut === 'brouillon'
@@ -440,6 +461,11 @@ export default function Inscription() {
   }
 
   useEffect(() => { reload() }, [])
+  useEffect(() => {
+    getPiecesJointesConfig()
+      .then(r => setPiecesConfig(r.data || FALLBACK_PIECES_CONFIG))
+      .catch(() => setPiecesConfig(FALLBACK_PIECES_CONFIG))
+  }, [])
 
   const set = k => e => setForm(f => ({ ...f, [k]: typeof e === 'string' ? e : e.target.value }))
 
@@ -483,8 +509,8 @@ export default function Inscription() {
       toast.error('Vous devez lire et accepter le reglement interne avant la soumission.')
       return
     }
-    if (!hasPhoto || !hasCin) {
-      toast.error('Veuillez d\'abord téléverser votre photo et votre carte d\'identité.')
+    if (missingRequiredPieces.length > 0) {
+      toast.error('Veuillez d\'abord televerser toutes les pieces obligatoires.')
       return
     }
     if (!window.confirm('Confirmer la soumission de votre dossier d\'inscription ?')) return
@@ -532,12 +558,6 @@ export default function Inscription() {
     } finally { setUploadingType(null) }
   }
 
-  const handlePdfDrop = e => {
-    e.preventDefault()
-    const file = e.dataTransfer.files[0]
-    if (file) handleTypedUpload(file, 'autre')
-  }
-
   const handleDeletePJ = async (pj_id, nom) => {
     if (!window.confirm(`Supprimer "${nom}" ?`)) return
     try { await deletePieceJointe(pj_id); toast.success('Document supprimé'); await reload({ keepForm: true }) }
@@ -576,16 +596,27 @@ export default function Inscription() {
   const allPieces = activeInsc?.pieces_jointes || []
   const photoPiece = allPieces.find(p => p.type_document === 'photo') || null
   const cinPiece   = allPieces.find(p => p.type_document === 'cin')   || null
-  const autresPieces = allPieces.filter(p => p.type_document === 'autre' || !p.type_document)
-  const hasPhoto = !!photoPiece
-  const hasCin   = !!cinPiece
+  const hasPhoto = !!photoPiece && photoPiece.statut !== 'refusee'
+  const hasCin   = !!cinPiece && cinPiece.statut !== 'refusee'
+  const currentPiecesCase = piecesConfig.cases?.[piecesConfig.default_case] || FALLBACK_PIECES_CONFIG.cases.nouveau_etudiant
+  const configuredPieces = currentPiecesCase.pieces || []
+  const pdfSinglePieces = configuredPieces.filter(p => p.format === 'pdf' && p.slot === 'single')
+  const pieceByType = type => allPieces.find(p => normalizePieceType(p.type_document) === normalizePieceType(type)) || null
+  const piecesByType = type => allPieces.filter(p => normalizePieceType(p.type_document || 'autre') === normalizePieceType(type))
+  const isPieceAccepted = type => {
+    const conf = configuredPieces.find(p => p.type === type)
+    const pieces = conf?.slot === 'multiple' ? piecesByType(type) : [pieceByType(type)].filter(Boolean)
+    return pieces.some(p => p.statut !== 'refusee')
+  }
+  const missingRequiredPieces = configuredPieces.filter(p => p.required && !isPieceAccepted(p.type))
+  const requiredPiecesReady = missingRequiredPieces.length === 0
 
   const steps = [
     { label: 'Email vérifié',     desc: 'Connexion OTP',                 done: data.email_verified,                                     active: !data.email_verified },
     { label: 'Identité',          desc: 'Données verrouillées',           done: !!(data.nom_fr && data.prenom_fr),                       active: false },
     { label: 'Coordonnées',       desc: 'Téléphone + adresse',           done: !!(data.telephone_portable && data.adresse_fr),          active: data.email_verified && !(data.telephone_portable && data.adresse_fr) },
-    { label: 'Photo + CIN',       desc: 'Pièces obligatoires',           done: hasPhoto && hasCin,                                      active: !!data.telephone_portable && !(hasPhoto && hasCin) },
-    { label: 'Soumission',        desc: 'Envoi à la scolarité',          done: isSubmitted && !isRejete,                                active: hasPhoto && hasCin && (!isSubmitted || isRejete) },
+    { label: 'Pieces jointes',    desc: 'Documents obligatoires',         done: requiredPiecesReady,                                     active: !!data.telephone_portable && !requiredPiecesReady },
+    { label: 'Soumission',        desc: 'Envoi à la scolarité',          done: isSubmitted && !isRejete,                                active: requiredPiecesReady && (!isSubmitted || isRejete) },
     { label: 'Validation finale', desc: 'Par le responsable',            done: isValidee,                                               active: isSubmitted && !isValidee && !isRejete },
   ]
 
@@ -920,11 +951,88 @@ export default function Inscription() {
       {/* ─── 6. Autres pièces (PDF) ─── */}
       <Section
         icon={<FileText size={16}/>}
-        title="Autres pièces jointes"
+        title="Pieces jointes configurees"
         subtitle="Relevés de notes, diplômes, attestations… (PDF uniquement)"
         accent="gray"
       >
-        {canEdit && data.email_verified && (
+        {pdfSinglePieces.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 mb-4">
+            {pdfSinglePieces.map(conf => {
+              const pj = pieceByType(conf.type)
+              const refused = pj?.statut === 'refusee'
+              return (
+                <div key={conf.type} className={clsx(
+                  'rounded-2xl border-2 overflow-hidden transition-all',
+                  refused ? 'border-red-300 bg-red-50/40' : pj ? 'border-emerald-200 bg-emerald-50/30' : 'border-dashed border-fog'
+                )}>
+                  <header className="flex items-center gap-3 px-4 py-3 border-b border-fog/50 bg-white">
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-amber-700 bg-amber-100">
+                      <FileText size={16} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-ink uppercase tracking-wide leading-tight truncate">{conf.label}</p>
+                      <p className="text-xs text-mist mt-0.5">{conf.description}</p>
+                    </div>
+                    {conf.required && <Badge color="amber">Obligatoire</Badge>}
+                  </header>
+                  <div className="p-4">
+                    {pj ? (
+                      <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-fog/40">
+                        <div className="w-12 h-12 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
+                          <FileText size={20} className="text-amber-600"/>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-ink truncate">{pj.nom_fichier}</p>
+                          <p className="text-xs text-mist mt-0.5">
+                            {(pj.taille_octets / 1024).toFixed(0)} KB
+                            {pj.uploaded_at && ` · ${new Date(pj.uploaded_at).toLocaleDateString('fr-FR')}`}
+                          </p>
+                          {refused && pj.motif_refus && (
+                            <p className="mt-1 text-xs text-red-700 leading-relaxed">
+                              Motif du refus : {pj.motif_refus}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex gap-1 shrink-0">
+                          <button type="button" onClick={() => handleViewPiece(pj.id)}
+                            className="p-2 rounded-lg bg-amber-50 hover:bg-amber-600 text-amber-600 hover:text-white transition-all"
+                            title="Voir le document">
+                            <Eye size={14}/>
+                          </button>
+                          {canEdit && (
+                            <button type="button" onClick={() => handleDeletePJ(pj.id, pj.nom_fichier)}
+                              className="p-2 rounded-lg bg-red-50 hover:bg-red-600 text-red-600 hover:text-white transition-all"
+                              title="Supprimer">
+                              <Trash2 size={14}/>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <label className={clsx(
+                        'w-full flex flex-col items-center justify-center gap-2 py-7 px-4 rounded-xl text-center transition-all border-2 border-dashed',
+                        canEdit && data.email_verified
+                          ? 'border-fog hover:border-brand/50 hover:bg-brand/5 cursor-pointer'
+                          : 'border-fog/40 bg-ghost/30 cursor-not-allowed opacity-60'
+                      )}>
+                        <input type="file" accept=".pdf,application/pdf" className="hidden"
+                          disabled={!canEdit || !data.email_verified || uploadingType === conf.type}
+                          onChange={e => e.target.files[0] && handleTypedUpload(e.target.files[0], normalizePieceType(conf.type))} />
+                        <FileUp size={28} className={clsx('transition-colors', uploadingType === conf.type ? 'text-brand animate-bounce' : 'text-fog')} />
+                        <p className={clsx('text-sm font-semibold', uploadingType === conf.type ? 'text-brand' : 'text-mist')}>
+                          {uploadingType === conf.type ? 'Envoi en cours...' : 'Cliquez pour televerser le PDF'}
+                        </p>
+                        <p className="text-xs text-fog">PDF uniquement - max {conf.max_mb || 10} MB</p>
+                      </label>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {false && canEdit && data.email_verified && (
           <div
             onDrop={handlePdfDrop} onDragOver={e => e.preventDefault()}
             onClick={() => pdfInputRef.current?.click()}
@@ -937,13 +1045,13 @@ export default function Inscription() {
               disabled={uploadingType === 'autre'} />
             <FileUp size={28} className={clsx('mx-auto mb-2 transition-colors', uploadingType === 'autre' ? 'text-brand animate-bounce' : 'text-fog group-hover:text-brand')} />
             <p className={clsx('text-sm font-medium', uploadingType === 'autre' ? 'text-brand' : 'text-mist group-hover:text-ink')}>
-              {uploadingType === 'autre' ? 'Envoi en cours…' : 'Glissez un PDF ici ou cliquez pour choisir'}
+              {uploadingType === 'autre' ? 'Envoi en cours...' : 'Upload generique desactive'}
             </p>
             <p className="text-xs text-fog mt-1">PDF uniquement — 10 Mo maximum</p>
           </div>
         )}
 
-        {autresPieces.length > 0 ? (
+        {false && autresPieces.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
             {autresPieces.map(pj => (
               <div key={pj.id} className={clsx(
@@ -991,11 +1099,10 @@ export default function Inscription() {
               </div>
             ))}
           </div>
-        ) : (
+        ) : null && (
           <div className="text-center py-6 text-mist">
             <FileText size={26} className="mx-auto mb-2 text-fog"/>
-            <p className="text-sm">Aucun autre document</p>
-            <p className="text-xs mt-1 text-fog">Recommandé : relevé de notes, diplôme, attestation de réussite</p>
+            <p className="text-sm">Upload generique desactive</p>
           </div>
         )}
       </Section>
@@ -1006,8 +1113,7 @@ export default function Inscription() {
         const missing = []
         if (!data.email_verified) missing.push({ key: 'email', label: 'Vérification de l\'adresse email' })
         missingFormFields.forEach(([k, label]) => missing.push({ key: k, label }))
-        if (!hasPhoto) missing.push({ key: 'photo', label: 'Photo d\'identité' })
-        if (!hasCin)   missing.push({ key: 'cin',   label: 'Carte d\'identité (CIN)' })
+        missingRequiredPieces.forEach(piece => missing.push({ key: piece.type, label: piece.label }))
         if (!reglementAccepted) missing.push({ key: 'reglement', label: 'Acceptation du reglement interne' })
         const ready = missing.length === 0
 

@@ -4,6 +4,7 @@ from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import require_etudiant, has_permission
+from app.core.pieces_jointes_config import load_pieces_jointes_config
 from app.db.session import get_db
 from app.schemas.schemas import (
     EmailChangeConfirm, EmailChangeRequest,
@@ -123,10 +124,20 @@ async def inscription_receipt(
 
 
 # ── Pièces jointes ─────────────────────────────────────────────────────────────
+@router.get(
+    "/pieces-jointes/config",
+    summary="Configuration des pieces jointes demandees",
+)
+async def pieces_jointes_config(
+    current_user: dict = Depends(has_permission("etudiant:read_own")),
+):
+    return load_pieces_jointes_config()
+
+
 @router.post(
     "/me/inscriptions/{inscription_id}/pieces-jointes",
     response_model=PieceJointeRead,
-    summary="Joindre une pièce jointe (photo / CIN / autre)",
+    summary="Joindre une piece jointe configuree",
 )
 async def upload_piece_jointe(
     inscription_id: int,

@@ -248,7 +248,10 @@ export default function EtudiantProfile() {
             ) : (
               <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {insc.pieces_jointes.map(pj => (
-                  <li key={pj.id} className="flex items-center gap-3 rounded-xl border border-ghost bg-ghost/30 px-4 py-3">
+                  <li key={pj.id} className={clsx(
+                    'flex items-center gap-3 rounded-xl border px-4 py-3',
+                    pj.statut === 'refusee' ? 'border-red-200 bg-red-50' : 'border-ghost bg-ghost/30'
+                  )}>
                     <div className="w-10 h-10 rounded-xl bg-white border border-ghost flex items-center justify-center shrink-0">
                       {pj.type_document === 'photo' ? <ImageIcon size={16} className="text-brand"/>
                         : pj.type_document === 'cin' ? <IdCard size={16} className="text-brand"/>
@@ -259,7 +262,13 @@ export default function EtudiantProfile() {
                       <p className="text-[0.7rem] text-mist mt-0.5 capitalize">
                         {pj.type_document} · {(pj.taille_octets / 1024).toFixed(0)} Ko
                       </p>
+                      {pj.statut === 'refusee' && pj.motif_refus && (
+                        <p className="mt-1 text-[0.72rem] text-red-700 leading-relaxed">
+                          Motif du refus : {pj.motif_refus}
+                        </p>
+                      )}
                     </div>
+                    {pj.statut === 'refusee' && <Badge color="red">Refusee</Badge>}
                     {pj.type_document === 'cin' && (
                       pj.ocr_verified
                         ? <Badge color="green">OCR ✓</Badge>

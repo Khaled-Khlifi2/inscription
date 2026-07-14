@@ -8,6 +8,7 @@ import {
   getResponsableStats, listMesEtudiants, getMonEtudiant,
   createMonEtudiant, updateMonEtudiant,
   decideInscription, downloadPJResponsable, viewPJResponsable,
+  rejectPJResponsable,
   getResponsableProfile,
 } from '../../services/adminApi'
 import FicheEtudiantFullscreen from '../../components/FicheEtudiantFullscreen'
@@ -536,6 +537,7 @@ export default function ResponsableDashboard() {
           decideFn={(inscId, d) => decideInscription(inscId, d)}
           downloadPJFn={(pjId, nom) => downloadPJResponsable(pjId, nom)}
           viewPJFn={(pjId) => viewPJResponsable(pjId)}
+          rejectPJFn={(pjId, motif) => rejectPJResponsable(pjId, motif)}
           role="responsable"
         />
       )}

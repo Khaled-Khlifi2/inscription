@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 from app.models.models import Etudiant, Inscription, PieceJointe, UserResponsable
 from app.schemas.schemas import InscriptionDecision
 from app.services.email_service import EmailService
-from app.services.etudiant_service import EDITABLE_FIELDS
+from app.services.etudiant_service import EDITABLE_FIELDS, build_rejection_message_with_pieces
 
 
 def _etudiant_opts():
@@ -109,8 +109,9 @@ class ResponsableService:
         else:  # rejeter
             if not body.message_rejet or not body.message_rejet.strip():
                 raise HTTPException(status_code=422, detail="Un message de rejet est obligatoire")
+            full_message = build_rejection_message_with_pieces(insc, body.message_rejet)
             insc.statut        = "rejetee"
-            insc.message_rejet = body.message_rejet.strip()
+            insc.message_rejet = full_message
             insc.traite_par_id = resp.id if resp else None
             insc.traite_le     = now
             e.is_inscription_complete = False
@@ -119,7 +120,7 @@ class ResponsableService:
                 asyncio.create_task(asyncio.to_thread(
                     EmailService.send_rejection_notification,
                     e.email, f"{e.prenom_fr} {e.nom_fr}",
-                    body.message_rejet, insc.annee_universitaire,
+                    full_message, insc.annee_universitaire,
                 ))
 
         await db.flush()

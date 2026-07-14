@@ -23,12 +23,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import require_responsable, has_permission
+from app.core.pieces_jointes_config import load_pieces_jointes_config
 from app.db.session import get_db
 from app.models.models import Etudiant, Inscription
 from app.schemas.schemas import (
     EtudiantAdminRead, EtudiantCreate, EtudiantUpdate,
     ExportRequest, ImportPreviewResponse, ImportResult,
     InscriptionDecision, PaginatedEtudiants,
+    PieceJointeRead, PieceJointeReject,
 )
 from app.services.etudiant_service import EtudiantService, ANNEE_EN_COURS
 from app.services.export_service import ExportService
@@ -184,6 +186,16 @@ async def decide_inscription(
 # ═══════════════════════════════════════════════════════════
 
 @router.get(
+    "/pieces-jointes/config",
+    summary="Configuration des pieces jointes demandees",
+)
+async def pieces_jointes_config(
+    current_user: dict = Depends(has_permission("piece_jointe:read_level")),
+):
+    return load_pieces_jointes_config()
+
+
+@router.get(
     "/pieces-jointes/{piece_jointe_id}/download",
     summary="Télécharger une pièce jointe pour vérification",
 )
@@ -199,6 +211,25 @@ async def download_piece(
         content=content,
         media_type=media_type,
         headers={"Content-Disposition": build_content_disposition(disposition, pj.nom_fichier)},
+    )
+
+
+@router.post(
+    "/pieces-jointes/{piece_jointe_id}/refuser",
+    response_model=PieceJointeRead,
+    summary="Refuser une piece jointe de mon niveau et notifier l'etudiant",
+)
+async def reject_piece(
+    piece_jointe_id: int,
+    body: PieceJointeReject,
+    current_user: dict = Depends(has_permission("inscription:approve_level")),
+    db: AsyncSession = Depends(get_db),
+):
+    return await FileService.reject_piece_jointe(
+        db,
+        piece_jointe_id,
+        body.motif_refus,
+        requester_niveau_id=current_user.get("niveau_id"),
     )
 
 

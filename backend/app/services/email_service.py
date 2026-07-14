@@ -8,6 +8,7 @@ import string
 from datetime import datetime, timedelta, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from html import escape
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -78,18 +79,60 @@ def _otp_html(code: str, nom: str, expire_minutes: int) -> str:
 </html>"""
 
 
+def _format_rejection_blocks(message: str) -> tuple[str, str]:
+    marker = "Pieces jointes refusees:"
+    general = message or ""
+    pieces_html = ""
+    if marker in general:
+        general, pieces_text = general.split(marker, 1)
+        items = []
+        for raw_line in pieces_text.splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            if line.startswith("-"):
+                line = line[1:].strip()
+            if ":" in line:
+                filename, motif = line.split(":", 1)
+                items.append(
+                    "<li>"
+                    f"<strong>{escape(filename.strip())}</strong>"
+                    f"<span>{escape(motif.strip())}</span>"
+                    "</li>"
+                )
+            else:
+                items.append(f"<li><span>{escape(line)}</span></li>")
+        if items:
+            pieces_html = (
+                '<div class="section">'
+                '<h2>Pieces jointes refusees</h2>'
+                f'<ul class="piece-list">{"".join(items)}</ul>'
+                '</div>'
+            )
+    general_html = "<br>".join(escape(general.strip()).splitlines())
+    return general_html, pieces_html
+
+
 def _rejection_html(nom: str, message: str, annee: str) -> str:
+    general_html, pieces_html = _format_rejection_blocks(message)
     return f"""
 <!DOCTYPE html>
 <html lang="fr">
 <head><meta charset="UTF-8"><style>
   body {{ font-family: Arial, sans-serif; background: #EDF0F4; margin: 0; padding: 40px 0; }}
-  .card {{ background: white; max-width: 520px; margin: 0 auto; border-radius: 16px;
+  .card {{ background: white; max-width: 620px; margin: 0 auto; border-radius: 16px;
            padding: 40px; box-shadow: 0 4px 24px rgba(13,17,23,0.10); }}
   h1 {{ color: #DC2626; font-size: 20px; margin-bottom: 16px; }}
+  h2 {{ color: #111827; font-size: 15px; margin: 0 0 10px; }}
   p  {{ color: #4A5568; font-size: 15px; line-height: 1.6; }}
+  .section {{ margin: 18px 0; }}
   .msg {{ background: #FEF2F2; border-left: 4px solid #DC2626; padding: 16px;
           border-radius: 8px; margin: 16px 0; color: #991B1B; font-size: 14px; }}
+  .piece-list {{ margin: 0; padding: 0; list-style: none; }}
+  .piece-list li {{ border: 1px solid #FECACA; background: #FFF7F7; border-radius: 10px;
+                    padding: 12px 14px; margin: 8px 0; }}
+  .piece-list strong {{ display: block; color: #7F1D1D; font-size: 14px; margin-bottom: 4px; }}
+  .piece-list span {{ display: block; color: #991B1B; font-size: 14px; line-height: 1.5; }}
 </style></head>
 <body>
 <div class="card">
@@ -97,7 +140,11 @@ def _rejection_html(nom: str, message: str, annee: str) -> str:
   <p>Bonjour <strong>{nom}</strong>,</p>
   <p>Votre demande d'inscription pour l'année universitaire <strong>{annee}</strong>
   a été refusée pour les raisons suivantes :</p>
-  <div class="msg">{message}</div>
+  <div class="section">
+    <h2>Motif general</h2>
+    <div class="msg">{general_html}</div>
+  </div>
+  {pieces_html}
   <p>Veuillez corriger votre dossier et soumettre à nouveau votre inscription.</p>
   <p>— Service scolarité ISI Tunis</p>
 </div>
@@ -154,37 +201,6 @@ def _reset_html(nom: str, annee: str) -> str:
   à nouveau votre dossier d'inscription.</div>
   <p>Si vous avez des questions, contactez le service scolarité.</p>
   <p>— Service scolarité ISI Tunis</p>
-</div>
-</body>
-</html>"""
-
-
-def _piece_rejection_html(nom: str, nom_fichier: str, motif: str, annee: str) -> str:
-    return f"""
-<!DOCTYPE html>
-<html lang="fr">
-<head><meta charset="UTF-8"><style>
-  body {{ font-family: Arial, sans-serif; background: #EDF0F4; margin: 0; padding: 40px 0; }}
-  .card {{ background: white; max-width: 520px; margin: 0 auto; border-radius: 16px;
-           padding: 40px; box-shadow: 0 4px 24px rgba(13,17,23,0.10); }}
-  h1 {{ color: #DC2626; font-size: 20px; margin-bottom: 16px; }}
-  p  {{ color: #4A5568; font-size: 15px; line-height: 1.6; }}
-  .file {{ background: #F8FAFC; border: 1px solid #E2E8F0; padding: 12px 14px;
-           border-radius: 8px; margin: 14px 0; color: #0F172A; font-weight: 600; }}
-  .msg {{ background: #FEF2F2; border-left: 4px solid #DC2626; padding: 16px;
-          border-radius: 8px; margin: 16px 0; color: #991B1B; font-size: 14px; }}
-</style></head>
-<body>
-<div class="card">
-  <h1>Piece jointe refusee</h1>
-  <p>Bonjour <strong>{nom}</strong>,</p>
-  <p>Une piece jointe de votre dossier d'inscription pour l'annee universitaire
-  <strong>{annee}</strong> a ete refusee.</p>
-  <div class="file">{nom_fichier}</div>
-  <p>Motif du refus :</p>
-  <div class="msg">{motif}</div>
-  <p>Veuillez remplacer ou corriger cette piece depuis votre espace etudiant, puis resoumettre votre dossier si necessaire.</p>
-  <p>-- Service scolarite ISI Tunis</p>
 </div>
 </body>
 </html>"""
@@ -303,18 +319,3 @@ class EmailService:
             _send_smtp(to_email, "Inscription réinitialisée — ISI Tunis", html)
         except Exception as exc:
             print(f"[EMAIL ERROR reset] {exc}")
-
-    @staticmethod
-    def send_piece_rejection_notification(
-        to_email: str,
-        nom: str,
-        nom_fichier: str,
-        motif_refus: str,
-        annee: str,
-    ) -> None:
-        """Notification de refus d'une piece jointe."""
-        try:
-            html = _piece_rejection_html(nom, nom_fichier, motif_refus, annee)
-            _send_smtp(to_email, "Piece jointe refusee - ISI Tunis", html)
-        except Exception as exc:
-            print(f"[EMAIL ERROR piece rejection] {exc}")
