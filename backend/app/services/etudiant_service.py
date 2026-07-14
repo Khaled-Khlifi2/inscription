@@ -294,6 +294,11 @@ class EtudiantService:
         e = await EtudiantService.get_by_mat_cin(db, mat_cin)
         if not e.email_verified:
             raise HTTPException(status_code=400, detail="Verifiez votre email avant de soumettre l'inscription")
+        if not data.reglement_interne_accepte:
+            raise HTTPException(
+                status_code=422,
+                detail="Vous devez lire et accepter le reglement interne avant de soumettre l'inscription",
+            )
 
         insc = (await db.execute(
             select(Inscription).where(

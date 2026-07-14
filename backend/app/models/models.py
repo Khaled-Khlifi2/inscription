@@ -232,6 +232,11 @@ class PieceJointe(Base):
                                                comment="True si OCR a confirmé la cohérence (CIN uniquement)")
     ocr_message: Mapped[str | None] = mapped_column(String(500), nullable=True,
                                                     comment="Message diagnostic OCR (CIN)")
+    statut: Mapped[str] = mapped_column(String(20), nullable=False, server_default="en_attente",
+                                        comment="Statut : en_attente | acceptee | refusee")
+    motif_refus: Mapped[str | None] = mapped_column(Text, nullable=True,
+                                                    comment="Motif de refus communique a l'etudiant")
+    refused_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     inscription: Mapped["Inscription"] = relationship("Inscription", back_populates="pieces_jointes")

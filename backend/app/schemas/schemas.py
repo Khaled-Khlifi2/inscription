@@ -132,8 +132,23 @@ class PieceJointeRead(BaseModel):
     taille_octets: int
     ocr_verified: bool = False
     ocr_message: Optional[str] = None
+    statut: str = "en_attente"
+    motif_refus: Optional[str] = None
+    refused_at: Optional[datetime] = None
     uploaded_at: datetime
     model_config = {"from_attributes": True}
+
+
+class PieceJointeReject(BaseModel):
+    motif_refus: str
+
+    @field_validator("motif_refus")
+    @classmethod
+    def check_motif(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Le motif de refus est obligatoire")
+        return v
 
 
 # ── Inscription ────────────────────────────────────────────────────────────────
@@ -315,6 +330,7 @@ class EtudiantSubmitInscription(EtudiantSelfComplete):
     contact_nom: str
     contact_prenom: str
     contact_tel: str
+    reglement_interne_accepte: bool = False
 
 
 class EtudiantPublicRead(BaseModel):
@@ -450,4 +466,3 @@ class ImportPreviewResponse(BaseModel):
     sample_rows: List[dict]
     total_rows: int
     suggested_mapping: dict  # {file_column: target_key}
-
