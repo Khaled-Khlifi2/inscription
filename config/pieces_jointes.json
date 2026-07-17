@@ -20,13 +20,22 @@
         },
         {
           "type": "cin",
-          "label": "Carte d'identite (CIN)",
-          "description": "Image lisible de la carte d'identite",
+          "label": "Carte d'identite (CIN) - face 1",
+          "description": "Image lisible de la premiere face de la carte d'identite",
           "required": true,
           "slot": "single",
           "format": "image",
           "max_mb": 5,
           "verification": "cin_ocr"
+        },
+        {
+          "type": "cin_verso",
+          "label": "Carte d'identite (CIN) - face 2",
+          "description": "Image lisible de la deuxieme face de la carte d'identite",
+          "required": true,
+          "slot": "single",
+          "format": "image",
+          "max_mb": 5
         },
         {
           "type": "recu_paiement",

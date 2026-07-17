@@ -29,7 +29,8 @@ const FALLBACK_PIECES_CONFIG = {
       label: 'Nouveaux etudiants',
       pieces: [
         { type: 'photo', label: 'Photo de profil', description: 'Visage clair, fond neutre', required: true, slot: 'single', format: 'image', max_mb: 5 },
-        { type: 'cin', label: "Carte d'identite (CIN)", description: 'Image lisible', required: true, slot: 'single', format: 'image', max_mb: 5 },
+        { type: 'cin', label: "Carte d'identite (CIN) - face 1", description: 'Image lisible de la premiere face', required: true, slot: 'single', format: 'image', max_mb: 5 },
+        { type: 'cin_verso', label: "Carte d'identite (CIN) - face 2", description: 'Image lisible de la deuxieme face', required: true, slot: 'single', format: 'image', max_mb: 5 },
         { type: 'recu_paiement', label: 'Recu de paiement', description: "Justificatif de paiement des frais d'inscription", required: true, slot: 'single', format: 'pdf', max_mb: 10 },
         { type: 'releve_bac', label: 'Releve de notes du BAC', description: 'Releve officiel des notes du baccalaureat', required: true, slot: 'single', format: 'pdf', max_mb: 10 },
       ],
@@ -218,9 +219,9 @@ function EmailSection({ currentEmail, onEmailChanged, disabled }) {
   )
 }
 
-// ── Slot d'upload pour image typée (photo / CIN) ─────────────
+// ── Slot d'upload pour image typée ───────────────────────────
 function ImageUploadSlot({
-  type,             // "photo" | "cin"
+  type,
   title,
   description,
   icon,
@@ -562,12 +563,9 @@ export default function Inscription() {
   if (!data) return <PageLoader />
 
   const allPieces = activeInsc?.pieces_jointes || []
-  const photoPiece = allPieces.find(p => p.type_document === 'photo') || null
-  const cinPiece   = allPieces.find(p => p.type_document === 'cin')   || null
-  const hasPhoto = !!photoPiece && photoPiece.statut !== 'refusee'
-  const hasCin   = !!cinPiece && cinPiece.statut !== 'refusee'
   const currentPiecesCase = piecesConfig.cases?.[piecesConfig.default_case] || FALLBACK_PIECES_CONFIG.cases.nouveau_etudiant
   const configuredPieces = currentPiecesCase.pieces || []
+  const imageSinglePieces = configuredPieces.filter(p => p.format === 'image' && p.slot === 'single')
   const pdfSinglePieces = configuredPieces.filter(p => p.format === 'pdf' && p.slot === 'single')
   const pieceByType = type => allPieces.find(p => normalizePieceType(p.type_document) === normalizePieceType(type)) || null
   const piecesByType = type => allPieces.filter(p => normalizePieceType(p.type_document || 'autre') === normalizePieceType(type))
@@ -930,7 +928,7 @@ export default function Inscription() {
       <Section
         icon={<Camera size={16}/>}
         title="Photo de profil et carte d'identité"
-        subtitle="Deux pièces obligatoires"
+        subtitle="Photo, CIN face 1 et CIN face 2 obligatoires"
         accent="brand"
       >
         {!data.email_verified && (
@@ -941,34 +939,30 @@ export default function Inscription() {
             </p>
           </div>
         )}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <ImageUploadSlot
-            type="photo"
-            title="Photo de profil"
-            description="Visage clair, fond neutre — sera affichée sur votre fiche"
-            icon={<User size={18}/>}
-            accent="blue"
-            piece={photoPiece}
-            uploading={uploadingType === 'photo'}
-            disabled={!canEdit || !data.email_verified}
-            onUpload={file => handleTypedUpload(file, 'photo')}
-            onDelete={() => handleDeletePJ(photoPiece.id, photoPiece.nom_fichier)}
-            onView={() => handleViewPiece(photoPiece.id)}
-          />
-          <ImageUploadSlot
-            type="cin"
-            title="Carte d'identité (CIN)"
-            description="Image lisible"
-            icon={<IdCard size={18}/>}
-            accent="brand"
-            piece={cinPiece}
-            uploading={uploadingType === 'cin'}
-            disabled={!canEdit || !data.email_verified}
-            onUpload={file => handleTypedUpload(file, 'cin')}
-            onDelete={() => handleDeletePJ(cinPiece.id, cinPiece.nom_fichier)}
-            onView={() => handleViewPiece(cinPiece.id)}
-            showOcrStatus
-          />
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
+          {imageSinglePieces.map(conf => {
+            const pj = pieceByType(conf.type)
+            const normalizedType = normalizePieceType(conf.type)
+            const isPhoto = normalizedType === 'photo'
+            const isCinFront = normalizedType === 'cin'
+            return (
+              <ImageUploadSlot
+                key={conf.type}
+                type={conf.type}
+                title={conf.label}
+                description={conf.description}
+                icon={isPhoto ? <User size={18}/> : <IdCard size={18}/>}
+                accent={isPhoto ? 'blue' : 'brand'}
+                piece={pj}
+                uploading={uploadingType === normalizedType}
+                disabled={!canEdit || !data.email_verified}
+                onUpload={file => handleTypedUpload(file, normalizedType)}
+                onDelete={() => handleDeletePJ(pj.id, pj.nom_fichier)}
+                onView={() => handleViewPiece(pj.id)}
+                showOcrStatus={isCinFront}
+              />
+            )
+          })}
         </div>
       </Section>
 

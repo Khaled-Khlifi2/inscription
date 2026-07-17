@@ -27,7 +27,8 @@ const FALLBACK_PIECES_CONFIG = {
     nouveau_etudiant: {
       pieces: [
         { type: 'photo', label: 'Photo de profil', format: 'image', required: true },
-        { type: 'cin', label: "Carte d'identite (CIN)", format: 'image', required: true },
+        { type: 'cin', label: "Carte d'identite (CIN) - face 1", format: 'image', required: true },
+        { type: 'cin_verso', label: "Carte d'identite (CIN) - face 2", format: 'image', required: true },
         { type: 'recu_paiement', label: 'Recu de paiement', format: 'pdf', required: true },
         { type: 'releve_bac', label: 'Releve de notes du BAC', format: 'pdf', required: true },
       ],
@@ -739,12 +740,13 @@ export default function FicheEtudiantFullscreen({
           {/* ─── Section 5 : Photo + CIN (aperçus) ──────────── */}
           {(() => {
             const pieces = insc?.pieces_jointes || []
-            const photo  = pieces.find(p => p.type_document === 'photo') || null
-            const cin    = pieces.find(p => p.type_document === 'cin')   || null
             const currentPiecesCase = piecesConfig.cases?.[piecesConfig.default_case] || FALLBACK_PIECES_CONFIG.cases.nouveau_etudiant
+            const imageConfigs = (currentPiecesCase.pieces || []).filter(p => p.format === 'image')
             const documentConfigs = (currentPiecesCase.pieces || []).filter(p => p.format === 'pdf')
             const pieceForType = type => pieces.find(p => normalizePieceType(p.type_document) === normalizePieceType(type)) || null
+            const imageSlots = imageConfigs.map(conf => ({ conf, piece: pieceForType(conf.type) }))
             const documentSlots = documentConfigs.map(conf => ({ conf, piece: pieceForType(conf.type) }))
+            const cin = pieceForType('cin')
             const cinAccent = cin
               ? (cin.ocr_verified ? 'emerald' : 'amber')
               : 'red'
@@ -760,25 +762,19 @@ export default function FicheEtudiantFullscreen({
                     : "Carte d'identité non téléversée par l'étudiant"}
                   accent="blue"
                 >
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <PieceImagePreview
-                      piece={photo}
-                      viewPJFn={viewPJFn}
-                      downloadPJFn={downloadPJFn}
-                      rejectPJFn={rejectPJFn}
-                      onRejected={async () => { await refreshWithoutJump(); onRefresh?.() }}
-                      label="Photo de profil"
-                      accent="blue"
-                    />
-                    <PieceImagePreview
-                      piece={cin}
-                      viewPJFn={viewPJFn}
-                      downloadPJFn={downloadPJFn}
-                      rejectPJFn={rejectPJFn}
-                      onRejected={async () => { await refreshWithoutJump(); onRefresh?.() }}
-                      label="Carte d'identité (CIN)"
-                      accent={cinAccent}
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                    {imageSlots.map(({ conf, piece }) => (
+                      <PieceImagePreview
+                        key={conf.type}
+                        piece={piece}
+                        viewPJFn={viewPJFn}
+                        downloadPJFn={downloadPJFn}
+                        rejectPJFn={rejectPJFn}
+                        onRejected={async () => { await refreshWithoutJump(); onRefresh?.() }}
+                        label={conf.label}
+                        accent={normalizePieceType(conf.type) === 'cin' ? cinAccent : piece ? 'blue' : 'red'}
+                      />
+                    ))}
                   </div>
 
                   {cin && cin.ocr_message && (
