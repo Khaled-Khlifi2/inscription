@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+﻿import { useEffect, useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import {
   getMyProfile, updateMyProfile, submitInscription,
@@ -13,7 +13,7 @@ import {
   Lock, Upload, Trash2, FileText, CheckCircle, AlertCircle,
   Clock, XCircle, RefreshCw, Info, AlertTriangle,
   Edit3, ShieldCheck, User, Globe, Image as ImageIcon,
-  IdCard, FileUp, ChevronRight, Camera, Eye, Download,
+  IdCard, FileUp, Camera, Eye, Download,
 } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -218,39 +218,6 @@ function EmailSection({ currentEmail, onEmailChanged, disabled }) {
   )
 }
 
-// ── Stepper horizontal ───────────────────────────────────────
-function HorizontalStepper({ steps }) {
-  return (
-    <div className="bg-white rounded-2xl border border-ghost shadow-sm px-5 py-4">
-      <p className="text-[0.7rem] font-bold uppercase tracking-wider text-mist mb-3">Progression du dossier</p>
-      <div className="flex items-stretch gap-2 overflow-x-auto pb-1">
-        {steps.map((s, i) => (
-          <div key={i} className="flex items-center flex-1 min-w-[170px]">
-            <div className={clsx(
-              'flex items-center gap-3 flex-1 px-3 py-2.5 rounded-xl transition-all',
-              s.done ? 'bg-success-soft/60' : s.active ? 'bg-brand/8 border border-brand/20' : 'bg-ghost/40'
-            )}>
-              <div className={clsx(
-                'w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0',
-                s.done ? 'bg-success text-white' : s.active ? 'bg-brand text-white ring-4 ring-brand/15' : 'bg-white border border-fog text-mist'
-              )}>
-                {s.done ? <CheckCircle size={14}/> : i + 1}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className={clsx('text-xs font-semibold truncate', s.done ? 'text-success' : s.active ? 'text-brand' : 'text-mist')}>{s.label}</p>
-                <p className="text-[0.65rem] text-mist truncate">{s.desc}</p>
-              </div>
-            </div>
-            {i < steps.length - 1 && (
-              <ChevronRight size={14} className={clsx('mx-1 shrink-0', s.done ? 'text-success/60' : 'text-fog')}/>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 // ── Slot d'upload pour image typée (photo / CIN) ─────────────
 function ImageUploadSlot({
   type,             // "photo" | "cin"
@@ -392,6 +359,7 @@ export default function Inscription() {
   const [uploadingType, setUploadingType] = useState(null)   // null | 'photo' | 'cin' | 'autre'
   const [errors, setErrors]   = useState({})
   const [reglementAccepted, setReglementAccepted] = useState(false)
+  const [activeSection, setActiveSection] = useState('admin')
 
   const activeInsc  = data?.inscriptions?.find(i => i.annee_universitaire === '2025/2026') || null
   const isBrouillon = activeInsc?.statut === 'brouillon'
@@ -611,14 +579,25 @@ export default function Inscription() {
   const missingRequiredPieces = configuredPieces.filter(p => p.required && !isPieceAccepted(p.type))
   const requiredPiecesReady = missingRequiredPieces.length === 0
 
-  const steps = [
-    { label: 'Email vérifié',     desc: 'Connexion OTP',                 done: data.email_verified,                                     active: !data.email_verified },
-    { label: 'Identité',          desc: 'Données verrouillées',           done: !!(data.nom_fr && data.prenom_fr),                       active: false },
-    { label: 'Coordonnées',       desc: 'Téléphone + adresse',           done: !!(data.telephone_portable && data.adresse_fr),          active: data.email_verified && !(data.telephone_portable && data.adresse_fr) },
-    { label: 'Pieces jointes',    desc: 'Documents obligatoires',         done: requiredPiecesReady,                                     active: !!data.telephone_portable && !requiredPiecesReady },
-    { label: 'Soumission',        desc: 'Envoi à la scolarité',          done: isSubmitted && !isRejete,                                active: requiredPiecesReady && (!isSubmitted || isRejete) },
-    { label: 'Validation finale', desc: 'Par le responsable',            done: isValidee,                                               active: isSubmitted && !isValidee && !isRejete },
+  const missingSubmitItems = [
+    !data.email_verified && { key: 'email', label: 'Vérification de l\'adresse email' },
+    ...missingFormFields.map(([key, label]) => ({ key, label })),
+    ...missingRequiredPieces.map(piece => ({ key: piece.type, label: piece.label })),
+    !reglementAccepted && { key: 'reglement', label: 'Acceptation du reglement interne' },
+  ].filter(Boolean)
+  const readyToSubmit = missingSubmitItems.length === 0
+  const sections = [
+    { value: 'admin', label: 'Dossier', icon: <Lock size={15}/>, done: !!(data.mat_cin && data.cfil && data.nom_fr && data.prenom_fr) },
+    { value: 'personal', label: 'Infos', icon: <Info size={15}/>, done: !!form.code_gouvernorat },
+    { value: 'contact', label: 'Contact', icon: <Phone size={15}/>, done: missingFormFields.length === 0 && data.email_verified },
+    { value: 'documents', label: 'Pieces', icon: <FileText size={15}/>, done: requiredPiecesReady },
+    { value: 'submit', label: 'Soumission', icon: <Send size={15}/>, done: readyToSubmit || (isSubmitted && !isRejete), count: missingSubmitItems.length },
   ]
+  const currentSectionIndex = sections.findIndex(section => section.value === activeSection)
+  const goToSection = offset => {
+    const next = sections[currentSectionIndex + offset]
+    if (next) setActiveSection(next.value)
+  }
 
   return (
     <div className="w-full max-w-none px-4 py-2 flex flex-col gap-5">
@@ -696,10 +675,43 @@ export default function Inscription() {
         </div>
       )}
 
-      {/* ── Stepper horizontal ── */}
-      <HorizontalStepper steps={steps} />
+      <div className="bg-white rounded-2xl border border-ghost shadow-sm p-2 grid grid-cols-2 md:grid-cols-5 gap-2">
+        {sections.map(section => (
+          <button
+            key={section.value}
+            type="button"
+            onClick={() => setActiveSection(section.value)}
+            className={clsx(
+              'min-h-[3.25rem] px-3 py-2 rounded-xl flex items-center gap-2 text-left transition-all border',
+              activeSection === section.value
+                ? 'bg-brand text-white border-brand shadow-sm'
+                : 'bg-white text-steel border-transparent hover:bg-ghost hover:text-ink'
+            )}
+          >
+            <span className={clsx(
+              'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
+              activeSection === section.value ? 'bg-white/20 text-white' : 'bg-ghost text-mist'
+            )}>
+              {section.done ? <CheckCircle size={15}/> : section.icon}
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-bold truncate">{section.label}</span>
+              {section.count > 0 && !section.done && (
+                <span className={clsx(
+                  'block text-[0.68rem] font-semibold',
+                  activeSection === section.value ? 'text-white/80' : 'text-amber-700'
+                )}>
+                  {section.count} restant{section.count > 1 ? 's' : ''}
+                </span>
+              )}
+            </span>
+          </button>
+        ))}
+      </div>
 
       {/* ─── 1. Informations administratives (verrouillées — filière SALIMA) ─── */}
+      {activeSection === 'admin' && (
+        <>
       <Section
         icon={<Lock size={16}/>}
         title="Données administratives & filière"
@@ -737,6 +749,10 @@ export default function Inscription() {
       </Section>
 
       {/* ─── 2bis. État civil & informations personnelles (modifiables) ─── */}
+        </>
+      )}
+      {activeSection === 'personal' && (
+        <>
       <Section
         icon={<Info size={16}/>}
         title="État civil & informations personnelles"
@@ -831,6 +847,10 @@ export default function Inscription() {
       </Section>
 
       {/* ─── 3. Email ─── */}
+        </>
+      )}
+      {activeSection === 'contact' && (
+        <>
       <Section icon={<Mail size={16}/>} title="Adresse email" subtitle="Vérifiée par OTP — sert pour la connexion et les notifications" accent="emerald">
         <EmailSection currentEmail={data.email} disabled={!canEdit} onEmailChanged={async () => await reload()} />
       </Section>
@@ -903,6 +923,10 @@ export default function Inscription() {
       </Section>
 
       {/* ─── 6. Photo + CIN (slots typés) ─── */}
+        </>
+      )}
+      {activeSection === 'documents' && (
+        <>
       <Section
         icon={<Camera size={16}/>}
         title="Photo de profil et carte d'identité"
@@ -1108,7 +1132,9 @@ export default function Inscription() {
       </Section>
 
       {/* ─── Boutons d'action ─── */}
-      {canEdit && (() => {
+        </>
+      )}
+      {activeSection === 'submit' && canEdit && (() => {
         // Calcul des éléments manquants : champs + pièces + email
         const missing = []
         if (!data.email_verified) missing.push({ key: 'email', label: 'Vérification de l\'adresse email' })
@@ -1118,7 +1144,7 @@ export default function Inscription() {
         const ready = missing.length === 0
 
         return (
-          <div className="bg-white rounded-2xl border border-ghost shadow-sm sticky bottom-3 z-10 overflow-hidden">
+          <div className="bg-white rounded-2xl border border-ghost shadow-sm overflow-hidden">
             {/* Bandeau d'état */}
             <div className={clsx(
               'px-5 py-3.5 border-b flex items-center gap-3 text-sm font-semibold',
@@ -1180,6 +1206,48 @@ export default function Inscription() {
           </div>
         )
       })()}
+      {activeSection === 'submit' && !canEdit && (
+        <Section icon={<CheckCircle size={16}/>} title="Soumission" subtitle="Votre dossier est en lecture seule pour le moment" accent={isValidee ? 'emerald' : 'amber'}>
+          <div className="flex items-center gap-3 rounded-xl bg-ghost/40 border border-ghost px-4 py-3">
+            <StatutBadge insc={activeInsc} />
+            <p className="text-sm text-mist">
+              {isValidee
+                ? 'Votre inscription est validée. Vous pouvez télécharger le reçu depuis le bandeau en haut de page.'
+                : 'Votre dossier est déjà transmis et attend le traitement du responsable.'}
+            </p>
+          </div>
+        </Section>
+      )}
+
+      <div className="flex items-center justify-between gap-3">
+        <Btn
+          variant="ghost"
+          size="sm"
+          onClick={() => goToSection(-1)}
+          disabled={currentSectionIndex <= 0}
+        >
+          Précédent
+        </Btn>
+        <div className="flex items-center gap-1">
+          {sections.map(section => (
+            <span
+              key={section.value}
+              className={clsx(
+                'w-2 h-2 rounded-full',
+                activeSection === section.value ? 'bg-brand' : 'bg-fog'
+              )}
+            />
+          ))}
+        </div>
+        <Btn
+          variant="secondary"
+          size="sm"
+          onClick={() => goToSection(1)}
+          disabled={currentSectionIndex >= sections.length - 1}
+        >
+          Suivant
+        </Btn>
+      </div>
     </div>
   )
 }
